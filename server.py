@@ -37,10 +37,10 @@ async def websocket_handler(request):
     """Handle WebSocket connections for text updates"""
     ws = web.WebSocketResponse()
     await ws.prepare(request)
-    
+
     websockets.add(ws)
     logger.info(f"WebSocket client connected. Total clients: {len(websockets)}")
-    
+
     try:
         # Send initial message
         await ws.send_json({
@@ -48,18 +48,34 @@ async def websocket_handler(request):
             "text": "Connected to server",
             "status": "Ready"
         })
-        
+
         # Keep connection alive and handle incoming messages
         async for msg in ws:
             if msg.type == web.WSMsgType.TEXT:
-                # Handle client messages if needed (e.g., prompt updates)
-                pass
+                try:
+                    data = json.loads(msg.data)
+                    
+                    if data.get('type') == 'update_prompt':
+                        new_prompt = data.get('prompt', '').strip()
+                        if new_prompt and vlm_service:
+                            vlm_service.update_prompt(new_prompt)
+                            logger.info(f"Prompt updated: {new_prompt}")
+                            
+                            # Confirm to client
+                            await ws.send_json({
+                                "type": "prompt_updated",
+                                "prompt": new_prompt
+                            })
+                except json.JSONDecodeError:
+                    logger.error("Invalid JSON from client")
+                except Exception as e:
+                    logger.error(f"Error handling client message: {e}")
             elif msg.type == web.WSMsgType.ERROR:
                 logger.error(f'WebSocket error: {ws.exception()}')
     finally:
         websockets.discard(ws)
         logger.info(f"WebSocket client disconnected. Total clients: {len(websockets)}")
-    
+
     return ws
 
 
@@ -67,13 +83,13 @@ def broadcast_text_update(text: str, status: str):
     """Broadcast text update to all connected WebSocket clients"""
     if not websockets:
         return
-    
+
     message = json.dumps({
         "type": "vlm_response",
         "text": text,
         "status": status
     })
-    
+
     # Send to all connected clients
     dead_websockets = set()
     for ws in websockets:
@@ -83,7 +99,7 @@ def broadcast_text_update(text: str, status: str):
         except Exception as e:
             logger.error(f"Error sending to websocket: {e}")
             dead_websockets.add(ws)
-    
+
     # Clean up dead connections
     websockets.difference_update(dead_websockets)
 
@@ -107,15 +123,15 @@ async def offer(request):
     @pc.on("track")
     def on_track(track):
         logger.info(f"Received track: {track.kind}")
-        
+
         if track.kind == "video":
             # Create processor track with VLM service and text callback
             processor_track = VideoProcessorTrack(
-                relay.subscribe(track), 
+                relay.subscribe(track),
                 vlm_service,
                 text_callback=broadcast_text_update
             )
-            
+
             # Add processed track back to connection
             pc.addTrack(processor_track)
             logger.info(f"Added processed video track back to peer connection")

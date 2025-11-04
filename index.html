@@ -96,6 +96,73 @@
             font-weight: 600;
         }
 
+        .prompt-editor {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .prompt-editor h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+
+        .prompt-editor label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 500;
+        }
+
+        .prompt-editor select,
+        .prompt-editor textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: inherit;
+            margin-bottom: 15px;
+            transition: border-color 0.3s ease;
+        }
+
+        .prompt-editor select:focus,
+        .prompt-editor textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .prompt-editor textarea {
+            resize: vertical;
+            min-height: 80px;
+            line-height: 1.5;
+        }
+
+        .prompt-editor .btn-update {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 10px 25px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+
+        .prompt-editor .btn-update:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .prompt-editor .btn-update:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
         .controls {
             display: flex;
             justify-content: center;
@@ -207,6 +274,29 @@
         <h1>🎥 Live VLM WebUI</h1>
         <p class="subtitle">Real-time vision AI interaction - describe, detect, analyze anything</p>
 
+        <div class="prompt-editor">
+            <h3>🎯 VLM Prompt</h3>
+            <label for="promptPreset">Quick Presets:</label>
+            <select id="promptPreset">
+                <option value="">-- Select a preset --</option>
+                <option value="Describe what you see in this image in one sentence.">Scene Description (Default)</option>
+                <option value="List all objects you can see in this image, separated by commas.">Object Detection</option>
+                <option value="Describe the person's activity and what they are doing.">Activity Recognition</option>
+                <option value="Are there any safety hazards visible? Answer with 'ALERT: description' or 'SAFE'.">Safety Monitoring</option>
+                <option value="Describe the facial expressions and emotions of people visible.">Emotion Detection</option>
+                <option value="Provide a detailed description of the scene for a visually impaired person.">Accessibility Description</option>
+                <option value="Read and transcribe any text visible in the image.">OCR / Text Reading</option>
+                <option value="What are the dominant colors in this image?">Color Analysis</option>
+                <option value="How many people are in this image? State locations.">People Counting</option>
+                <option value="Are there any pets or animals visible? If yes, describe them.">Pet/Animal Detection</option>
+            </select>
+            
+            <label for="promptText">Custom Prompt:</label>
+            <textarea id="promptText" placeholder="Enter your custom prompt here...">Describe what you see in this image in one sentence.</textarea>
+            
+            <button id="updatePromptBtn" class="btn-update">Update Prompt</button>
+        </div>
+
         <div class="video-container">
             <div class="video-wrapper">
                 <video id="videoElement" autoplay playsinline muted></video>
@@ -246,6 +336,9 @@
         const textOverlay = document.getElementById('textOverlay');
         const vlmText = document.getElementById('vlmText');
         const vlmStatus = document.getElementById('vlmStatus');
+        const promptPreset = document.getElementById('promptPreset');
+        const promptText = document.getElementById('promptText');
+        const updatePromptBtn = document.getElementById('updatePromptBtn');
 
         let peerConnection = null;
         let localStream = null;
@@ -257,25 +350,57 @@
             statusElement.className = `status ${state}`;
         }
 
+        // Handle preset selection
+        promptPreset.addEventListener('change', (e) => {
+            if (e.target.value) {
+                promptText.value = e.target.value;
+            }
+        });
+
+        // Handle prompt update
+        updatePromptBtn.addEventListener('click', () => {
+            const newPrompt = promptText.value.trim();
+            if (!newPrompt) {
+                alert('Please enter a prompt');
+                return;
+            }
+            
+            if (websocket && websocket.readyState === WebSocket.OPEN) {
+                websocket.send(JSON.stringify({
+                    type: 'update_prompt',
+                    prompt: newPrompt
+                }));
+                updateStatus('Prompt updated!', 'connected');
+                
+                // Visual feedback
+                updatePromptBtn.textContent = '✓ Updated!';
+                setTimeout(() => {
+                    updatePromptBtn.textContent = 'Update Prompt';
+                }, 2000);
+            } else {
+                alert('Please start the VLM analysis first');
+            }
+        });
+
         // Connect to WebSocket for text updates
         function connectWebSocket() {
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
             const wsUrl = `${protocol}//${window.location.host}/ws`;
-            
+
             websocket = new WebSocket(wsUrl);
-            
+
             websocket.onopen = () => {
                 console.log('WebSocket connected');
             };
-            
+
             websocket.onmessage = (event) => {
                 const data = JSON.parse(event.data);
-                
+
                 if (data.type === 'vlm_response') {
                     // Update text overlay
                     vlmText.textContent = data.text;
                     vlmStatus.textContent = data.status;
-                    
+
                     // Update overlay styling based on status
                     if (data.status === 'Processing...') {
                         textOverlay.classList.add('processing');
@@ -287,11 +412,11 @@
                     vlmStatus.textContent = data.status;
                 }
             };
-            
+
             websocket.onerror = (error) => {
                 console.error('WebSocket error:', error);
             };
-            
+
             websocket.onclose = () => {
                 console.log('WebSocket disconnected');
                 vlmText.textContent = 'Disconnected from server';
@@ -312,7 +437,7 @@
             try {
                 // Connect WebSocket for text updates
                 connectWebSocket();
-                
+
                 updateStatus('Requesting camera access...', 'connecting');
 
                 // Get local video stream
@@ -410,7 +535,7 @@
         function stop() {
             // Disconnect WebSocket
             disconnectWebSocket();
-            
+
             // Stop local stream
             if (localStream) {
                 localStream.getTracks().forEach(track => track.stop());
@@ -430,7 +555,7 @@
             startBtn.disabled = false;
             stopBtn.disabled = true;
             updateStatus('Stopped', 'disconnected');
-            
+
             // Reset text overlay
             vlmText.textContent = 'Waiting for connection...';
             vlmStatus.textContent = 'Initializing';
