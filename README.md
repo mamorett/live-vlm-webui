@@ -63,7 +63,17 @@ This will create `cert.pem` and `key.pem` in the project directory. These are se
 
 5. **Set up your VLM backend** (choose one):
 
-### Option A: vLLM (Recommended)
+### Option A: Ollama (Easiest)
+```bash
+# Install ollama from https://ollama.ai/download
+# Pull a vision model
+ollama pull llava:7b
+
+# Start ollama server
+ollama serve
+```
+
+### Option B: vLLM (Recommended)
 ```bash
 # Install vLLM
 pip install vllm
@@ -74,7 +84,7 @@ python -m vllm.entrypoints.openai.api_server \
   --port 8000
 ```
 
-### Option B: SGLang
+### Option C: SGLang
 ```bash
 # Install SGLang
 pip install "sglang[all]"
@@ -83,16 +93,6 @@ pip install "sglang[all]"
 python -m sglang.launch_server \
   --model-path llama-3.2-11b-vision-instruct \
   --port 30000
-```
-
-### Option C: Ollama (Easiest)
-```bash
-# Install ollama from https://ollama.ai/download
-# Pull a vision model
-ollama pull llava:7b
-
-# Start ollama server
-ollama serve
 ```
 
 ## Usage
@@ -115,7 +115,17 @@ https://localhost:8080
 
 4. **Accept the security warning** (click "Advanced" → "Proceed")
 
+Click "**Advanced**" button.
+
+![](https://github.com/user-attachments/assets/2d93e90b-708b-4834-baee-f916037b2ea1")
+
+Then click on "**Proceeed to <IP_ADDRESS> (unsafe)**".
+
+![](https://github.com/user-attachments/assets/455bd71f-2d87-4aa2-9da7-b75c84e8c262")
+
 5. **Click "Start VLM Analysis"** and allow camera access
+
+![](https://github.com/user-attachments/assets/9b0ec5c2-dc03-4553-b9e0-bd71a85ab399)
 
 ### Manual Usage
 

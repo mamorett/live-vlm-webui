@@ -155,9 +155,40 @@ def main():
         logger.warning("⚠️  Generate certificates with: ./generate_cert.sh")
         logger.warning("⚠️  Then restart with: --ssl-cert cert.pem --ssl-key key.pem")
 
+    # Get network addresses
+    import socket
+    import subprocess
+
     # Run server
     logger.info(f"Starting server on {args.host}:{args.port}")
-    logger.info(f"Open {protocol}://{args.host if args.host != '0.0.0.0' else 'localhost'}:{args.port} in your browser")
+    logger.info("")
+    logger.info("=" * 70)
+    logger.info("Access the server at:")
+    logger.info(f"  Local:   {protocol}://localhost:{args.port}")
+
+    # Get all network interfaces using hostname -I (more reliable)
+    try:
+        result = subprocess.run(['hostname', '-I'], capture_output=True, text=True, timeout=1)
+        if result.returncode == 0:
+            ips = result.stdout.strip().split()
+            for ip in ips:
+                # Filter out loopback and docker bridges (172.17.x.x)
+                if not ip.startswith('127.') and not ip.startswith('172.17.'):
+                    logger.info(f"  Network: {protocol}://{ip}:{args.port}")
+    except:
+        # Fallback to socket method
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(("8.8.8.8", 80))
+            ip = s.getsockname()[0]
+            s.close()
+            if ip and ip != '127.0.0.1':
+                logger.info(f"  Network: {protocol}://{ip}:{args.port}")
+        except:
+            pass
+
+    logger.info("=" * 70)
+    logger.info("")
 
     web.run_app(app, host=args.host, port=args.port, ssl_context=ssl_context)
 
