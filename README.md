@@ -14,34 +14,54 @@ Stream your webcam to any VLM and get live AI-powered analysis - perfect for tes
 
 ## Features
 
+### Core Functionality
 - 🎥 **Real-time WebRTC streaming** - Low-latency bidirectional video
 - 🔌 **OpenAI-compatible API** - Works with vLLM, SGLang, Ollama, TGI, or any vision API endpoint that uses base64-encoded images
-- 📝 **Custom prompts** - Scene description, object detection, monitoring, alert and more
-- ⚡ **Async processing** - Smooth video while VLM processes frames
-- 🎨 **Modern web UI** - Clean, responsive interface with HTTPS support
-- 🔧 **Flexible deployment** - Local inference or cloud APIs
+- 📝 **Interactive prompt editor** - 10+ preset prompts (scene description, object detection, safety monitoring, OCR, etc.) + custom prompts
+- ⚡ **Async processing** - Smooth video while VLM processes frames in background
+- 🔧 **Flexible deployment** - Local inference or cloud APIs (OpenAI, Anthropic, etc.)
+
+### UI & Visualization
+- 🎨 **Modern NVIDIA-themed UI** - Professional design inspired by NVIDIA NGC Catalog
+- 🌓 **Light/Dark theme toggle** - Automatic preference persistence
+- 📊 **Live system monitoring** - Real-time GPU, VRAM, CPU, and RAM stats with sparkline charts
+- ⏱️ **Inference metrics** - Live latency tracking (last, average, total count)
+- 🪞 **Video mirroring** - Toggle button for camera view
+- 📱 **Responsive layout** - Optimized for single-screen viewing (video + output + stats all visible)
+
+### Configuration & Control
+- 🎛️ **Dynamic settings** - Change model, prompt, and processing interval without restarting
+- 🔄 **Model auto-detection** - Refresh button to discover available models from API
+- ⚙️ **Adjustable processing rate** - Control frame interval (1-3600 frames, default 30)
+- 🎯 **Max tokens control** - Fine-tune output length (1-4096 tokens)
+- 🔌 **WebSocket real-time updates** - Instant feedback on settings and analysis results
+
+### Platform Support
+- 💻 **Cross-platform monitoring** - Auto-detects NVIDIA GPUs (NVML), with framework for Apple Silicon and AMD
+- 🖥️ **System detection** - Displays actual CPU model and hostname (Linux, macOS, Windows)
+- 🔒 **HTTPS support** - Self-signed certificates for secure webcam access
 
 ## Future Enhancements (Roadmap)
 
-- [ ] Interactive prompt editor with dropdown presets
-- [ ] Model selection dropdown (auto-detect available models from API)
-- [ ] Separate video and text overlay (independent HTML elements)
-- [ ] Live GPU utilization stats (memory, load)
-- [ ] Inference latency metrics (ms to process a frame)
-- [ ] Multi-platform GPU monitoring (NVIDIA, Apple Silicon, AMD)
-- [ ] Benchmark mode for performance comparison across hardware
+- [ ] Benchmark mode for side-by-side model comparison
+- [ ] Model download UI (➕ button placeholder ready)
+- [ ] Cloud API templates (OpenAI, Anthropic quick configs)
+- [ ] Recording functionality (save analysis sessions)
+- [ ] Export results (JSON, CSV)
+- [ ] Mobile app support
 
 ## Screenshot
 
-![](https://github.com/user-attachments/assets/0655f5d1-3912-49fb-b1b3-c1107c1ced5b)
+![](https://github.com/user-attachments/assets/0fa02fc5-c130-43e8-b42d-acd01853270c)
 
 ## Architecture
 
 1. **Uplink**: Webcam video → WebRTC → Server
 2. **Processing**: Server extracts frames → VLM analyzes based on your prompt (async)
-3. **Downlink**: Server adds text overlay → WebRTC → Browser
+3. **Downlink**: Clean video stream → WebRTC → Browser
+4. **UI Updates**: VLM results → WebSocket → Real-time text display
 
-The VLM processes frames asynchronously. While processing, the video stream continues with the most recent response overlaid. This ensures smooth video without blocking.
+The VLM processes frames asynchronously in the background. The video stream continues smoothly while results are displayed in a separate text panel via WebSocket, ensuring no visual interference and instant updates when new analysis completes.
 
 ## Prerequisites
 
@@ -143,9 +163,33 @@ Then click on "**Proceeed to <IP_ADDRESS> (unsafe)**".
 
 ![](https://github.com/user-attachments/assets/455bd71f-2d87-4aa2-9da7-b75c84e8c262")
 
-5. **Click "Start VLM Analysis"** and allow camera access
+5. **Click "Start Analysis"** and allow camera access
 
 ![](https://github.com/user-attachments/assets/c2a8c58b-9271-479e-88a1-8369dbcc3178)
+
+### Using the Web Interface
+
+Once the server is running, the web interface provides full control:
+
+**Left Sidebar Controls:**
+- **VLM API Configuration** - Change API URL, key, and model on-the-fly
+  - 🔄 **Refresh Models** button to auto-detect available models
+  - ➕ **Download Model** (coming soon)
+- **Start/Stop Analysis** - Control buttons right below API config
+- **Prompt Editor** - Choose from 10+ presets or write custom prompts
+  - Adjust **Max Tokens** for response length (1-4096)
+- **Processing Settings** - Set frame interval (1-3600 frames)
+  - Lower = more frequent analysis, higher GPU usage
+  - Higher = less frequent, good for benchmarking
+
+**Main Content Area:**
+- **Video Feed** - Live webcam with mirror toggle button
+- **VLM Output** - Real-time results with inference metrics
+- **System Stats** - Live GPU, VRAM, CPU, RAM monitoring with sparkline graphs
+
+**Header:**
+- **Connection Status** - Shows WebSocket connectivity
+- **Theme Toggle** - Switch between Light/Dark modes (🌙/☀️)
 
 ### Manual Usage
 
@@ -268,10 +312,26 @@ python server.py --model gpt-4-vision-preview \
 ## Performance Tuning
 
 ### Frame Processing Rate
-Adjust `--process-every` to control how often frames are sent to the VLM:
-- Higher values (e.g., 60) = less frequent updates, lower CPU/GPU usage
-- Lower values (e.g., 15) = more frequent updates, higher resource usage
-- Default (30) = ~1 update per second at 30fps
+You can adjust frame processing in two ways:
+
+**Via Command Line** (at startup):
+```bash
+python server.py --model llama-3.2-11b-vision-instruct \
+  --api-base http://localhost:8000/v1 \
+  --ssl-cert cert.pem --ssl-key key.pem \
+  --process-every 60  # Process every 60 frames
+```
+
+**Via Web UI** (while running):
+- Go to "Processing Settings" in the left sidebar
+- Change "Frame Processing Interval" (1-3600 frames)
+- Click "Apply Settings" - takes effect immediately!
+
+**Guidelines:**
+- **Lower values** (5-15 frames) = more frequent analysis, higher GPU usage (~2-6 FPS @ 30fps)
+- **Default** (30 frames) = balanced, ~1 FPS analysis
+- **Higher values** (60-300 frames) = less frequent, good for benchmarking (~0.1-0.5 FPS)
+- **Very high** (300-3600 frames) = infrequent updates, minimal GPU load (10s-2min intervals)
 
 ### Model Selection
 Choose based on your hardware and needs:
@@ -336,13 +396,18 @@ This tool uses the OpenAI chat completions API format with vision support. Any b
 
 ```
 live-vlm-webui/
-├── server.py           # Main WebRTC server
-├── video_processor.py  # Video processing and text overlay
-├── vlm_service.py      # VLM service (OpenAI-compatible API client)
-├── index.html          # Frontend web interface
-├── requirements.txt    # Python dependencies
-├── .gitignore          # Git ignore file
-└── README.md          # This file
+├── server.py            # Main WebRTC server with WebSocket support
+├── video_processor.py   # Video frame processing and VLM integration
+├── vlm_service.py       # VLM service (OpenAI-compatible API client)
+├── gpu_monitor.py       # Cross-platform GPU/system monitoring (NVML, etc.)
+├── index.html           # Frontend web UI (NVIDIA-themed, dark/light mode)
+├── requirements.txt     # Python dependencies
+├── start_server.sh      # Quick start script with SSL
+├── generate_cert.sh     # SSL certificate generation script
+├── examples.sh          # Example commands for different setups
+├── ROADMAP.md          # Detailed future plans and milestones
+├── .gitignore           # Git ignore patterns
+└── README.md           # This file
 ```
 
 ## Troubleshooting
@@ -404,32 +469,60 @@ Edit `vlm_service.py` to customize API calls:
 response = await self.client.chat.completions.create(
     model=self.model,
     messages=messages,
-    max_tokens=512,
+    max_tokens=self.max_tokens,
     temperature=0.7,  # Adjust for creativity
     top_p=0.9,        # Adjust for diversity
 )
 ```
 
-### Customizing the Overlay
+### WebSocket Communication
 
-Edit `video_processor.py` to change how text is displayed:
+The server uses WebSocket for real-time bidirectional communication:
 
-```python
-def _add_text_overlay(self, img, text, status):
-    # Customize colors, fonts, positions, etc.
-    text_color = (255, 255, 255)  # White
-    bg_color = (0, 0, 0)           # Black
-    font_scale = 0.7
-    # ... more customization
+**Server → Client:**
+- `vlm_response` - VLM analysis results and metrics
+- `gpu_stats` - System monitoring data (GPU, CPU, RAM)
+- `status` - Connection and processing status updates
+
+**Client → Server:**
+- `update_prompt` - Change prompt and max_tokens on-the-fly
+- `update_model` - Switch VLM model without restart
+- `update_processing` - Adjust frame processing interval
+
+Example: Sending a prompt update from JavaScript:
+```javascript
+websocket.send(JSON.stringify({
+    type: 'update_prompt',
+    prompt: 'Describe the scene',
+    max_tokens: 100
+}));
 ```
 
-### Adding Dynamic Prompt Updates
+### Adding New GPU Monitors
 
-You could extend the UI to allow prompt changes without restarting:
+Extend `gpu_monitor.py` for new platforms:
 
-```javascript
-// In index.html, add a prompt input and send via WebSocket
-// Then update vlm_service.update_prompt(new_prompt)
+```python
+class AppleSiliconMonitor(GPUMonitor):
+    """Monitoring for Apple M1/M2/M3 chips"""
+    
+    def get_stats(self) -> Dict:
+        # Use powermetrics or ioreg to get GPU stats
+        # Return standardized dict format
+        pass
+```
+
+### Customizing the UI Theme
+
+Edit CSS variables in `index.html` to customize colors:
+
+```css
+:root {
+    --nvidia-green: #76B900;  /* NVIDIA brand color */
+    --bg-primary: #000000;    /* Dark theme background */
+    --text-primary: #FFFFFF;  /* Text color */
+    /* ... more variables */
+}
 ```
 
 ## License
@@ -439,11 +532,18 @@ MIT License - Feel free to use and modify for your projects!
 ## Contributing
 
 Contributions welcome! Areas for improvement:
-- WebSocket support for dynamic prompt updates
-- Recording functionality
-- Multiple simultaneous camera support
-- Audio description output
-- Mobile app support
+- ✅ ~~WebSocket support for dynamic prompt updates~~ (Implemented!)
+- ✅ ~~Live GPU/system monitoring~~ (Implemented!)
+- ✅ ~~Interactive prompt editor~~ (Implemented!)
+- ✅ ~~Inference latency metrics~~ (Implemented!)
+- 🔄 Apple Silicon GPU monitoring
+- 🔄 AMD GPU monitoring
+- 📹 Recording functionality
+- 🎥 Multiple simultaneous camera support
+- 🔊 Audio description output (TTS)
+- 📱 Mobile app support
+- 🏆 Benchmark mode with side-by-side comparison
+- 📊 Export analysis results (JSON, CSV)
 
 ## Acknowledgments
 
