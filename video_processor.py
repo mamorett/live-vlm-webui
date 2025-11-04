@@ -22,10 +22,11 @@ class VideoProcessorTrack(VideoStreamTrack):
     and overlays responses on the video before sending back
     """
 
-    def __init__(self, track: VideoStreamTrack, vlm_service: VLMService):
+    def __init__(self, track: VideoStreamTrack, vlm_service: VLMService, text_callback=None):
         super().__init__()
         self.track = track
         self.vlm_service = vlm_service
+        self.text_callback = text_callback  # Callback to send text updates
         self.last_frame: Optional[np.ndarray] = None
         self.frame_count = 0
         self.process_every_n_frames = 30  # Process every N frames to avoid overloading VLM
@@ -60,21 +61,17 @@ class VideoProcessorTrack(VideoStreamTrack):
 
             # Get current response (may be old if VLM is still processing)
             response, is_processing = self.vlm_service.get_current_response()
-
-            # Add status indicator
-            if is_processing:
-                status = "[Processing...]"
-            else:
-                status = ""
-
-            # Add text overlay to frame
-            img_with_text = self._add_text_overlay(img, response, status)
-
-            # Convert back to VideoFrame
-            new_frame = VideoFrame.from_ndarray(img_with_text, format="bgr24")
+            
+            # Send text update via callback (for WebSocket)
+            if self.text_callback:
+                status = "Processing..." if is_processing else "Ready"
+                self.text_callback(response, status)
+            
+            # Return clean video frame (no overlay)
+            new_frame = VideoFrame.from_ndarray(img, format="bgr24")
             new_frame.pts = frame.pts
             new_frame.time_base = frame.time_base
-
+            
             return new_frame
 
         except Exception as e:

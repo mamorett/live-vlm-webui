@@ -66,6 +66,36 @@
             display: block;
         }
 
+        .text-overlay {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0, 0, 0, 0.75);
+            color: white;
+            padding: 15px 20px;
+            font-size: 16px;
+            line-height: 1.5;
+            max-height: 30%;
+            overflow-y: auto;
+            backdrop-filter: blur(5px);
+            transition: background 0.3s ease;
+        }
+
+        .text-overlay.processing {
+            background: rgba(102, 126, 234, 0.75);
+        }
+
+        .text-overlay .status {
+            display: inline-block;
+            font-size: 12px;
+            padding: 2px 8px;
+            border-radius: 3px;
+            background: rgba(255, 255, 255, 0.2);
+            margin-left: 10px;
+            font-weight: 600;
+        }
+
         .controls {
             display: flex;
             justify-content: center;
@@ -180,6 +210,10 @@
         <div class="video-container">
             <div class="video-wrapper">
                 <video id="videoElement" autoplay playsinline muted></video>
+                <div id="textOverlay" class="text-overlay">
+                    <span id="vlmText">Waiting for connection...</span>
+                    <span id="vlmStatus" class="status">Initializing</span>
+                </div>
             </div>
 
             <div class="controls">
@@ -209,9 +243,13 @@
         const startBtn = document.getElementById('startBtn');
         const stopBtn = document.getElementById('stopBtn');
         const statusElement = document.getElementById('status');
+        const textOverlay = document.getElementById('textOverlay');
+        const vlmText = document.getElementById('vlmText');
+        const vlmStatus = document.getElementById('vlmStatus');
 
         let peerConnection = null;
         let localStream = null;
+        let websocket = null;
 
         // Update status display
         function updateStatus(message, state) {
@@ -219,9 +257,62 @@
             statusElement.className = `status ${state}`;
         }
 
+        // Connect to WebSocket for text updates
+        function connectWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/ws`;
+            
+            websocket = new WebSocket(wsUrl);
+            
+            websocket.onopen = () => {
+                console.log('WebSocket connected');
+            };
+            
+            websocket.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                
+                if (data.type === 'vlm_response') {
+                    // Update text overlay
+                    vlmText.textContent = data.text;
+                    vlmStatus.textContent = data.status;
+                    
+                    // Update overlay styling based on status
+                    if (data.status === 'Processing...') {
+                        textOverlay.classList.add('processing');
+                    } else {
+                        textOverlay.classList.remove('processing');
+                    }
+                } else if (data.type === 'status') {
+                    vlmText.textContent = data.text;
+                    vlmStatus.textContent = data.status;
+                }
+            };
+            
+            websocket.onerror = (error) => {
+                console.error('WebSocket error:', error);
+            };
+            
+            websocket.onclose = () => {
+                console.log('WebSocket disconnected');
+                vlmText.textContent = 'Disconnected from server';
+                vlmStatus.textContent = 'Offline';
+            };
+        }
+
+        // Disconnect WebSocket
+        function disconnectWebSocket() {
+            if (websocket) {
+                websocket.close();
+                websocket = null;
+            }
+        }
+
         // Start WebRTC connection
         async function start() {
             try {
+                // Connect WebSocket for text updates
+                connectWebSocket();
+                
                 updateStatus('Requesting camera access...', 'connecting');
 
                 // Get local video stream
@@ -317,6 +408,9 @@
 
         // Stop WebRTC connection
         function stop() {
+            // Disconnect WebSocket
+            disconnectWebSocket();
+            
             // Stop local stream
             if (localStream) {
                 localStream.getTracks().forEach(track => track.stop());
@@ -336,6 +430,11 @@
             startBtn.disabled = false;
             stopBtn.disabled = true;
             updateStatus('Stopped', 'disconnected');
+            
+            // Reset text overlay
+            vlmText.textContent = 'Waiting for connection...';
+            vlmStatus.textContent = 'Initializing';
+            textOverlay.classList.remove('processing');
         }
 
         // Event listeners

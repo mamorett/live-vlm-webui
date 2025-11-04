@@ -24,12 +24,68 @@ logger = logging.getLogger(__name__)
 relay = MediaRelay()
 pcs = set()
 vlm_service = None
+websockets = set()  # Track active WebSocket connections
 
 
 async def index(request):
     """Serve the main HTML page"""
     content = open(os.path.join(os.path.dirname(__file__), "index.html"), "r").read()
     return web.Response(content_type="text/html", text=content)
+
+
+async def websocket_handler(request):
+    """Handle WebSocket connections for text updates"""
+    ws = web.WebSocketResponse()
+    await ws.prepare(request)
+    
+    websockets.add(ws)
+    logger.info(f"WebSocket client connected. Total clients: {len(websockets)}")
+    
+    try:
+        # Send initial message
+        await ws.send_json({
+            "type": "status",
+            "text": "Connected to server",
+            "status": "Ready"
+        })
+        
+        # Keep connection alive and handle incoming messages
+        async for msg in ws:
+            if msg.type == web.WSMsgType.TEXT:
+                # Handle client messages if needed (e.g., prompt updates)
+                pass
+            elif msg.type == web.WSMsgType.ERROR:
+                logger.error(f'WebSocket error: {ws.exception()}')
+    finally:
+        websockets.discard(ws)
+        logger.info(f"WebSocket client disconnected. Total clients: {len(websockets)}")
+    
+    return ws
+
+
+def broadcast_text_update(text: str, status: str):
+    """Broadcast text update to all connected WebSocket clients"""
+    if not websockets:
+        return
+    
+    message = json.dumps({
+        "type": "vlm_response",
+        "text": text,
+        "status": status
+    })
+    
+    # Send to all connected clients
+    dead_websockets = set()
+    for ws in websockets:
+        try:
+            # Use asyncio to send without blocking
+            asyncio.create_task(ws.send_str(message))
+        except Exception as e:
+            logger.error(f"Error sending to websocket: {e}")
+            dead_websockets.add(ws)
+    
+    # Clean up dead connections
+    websockets.difference_update(dead_websockets)
 
 
 async def offer(request):
@@ -51,11 +107,15 @@ async def offer(request):
     @pc.on("track")
     def on_track(track):
         logger.info(f"Received track: {track.kind}")
-
+        
         if track.kind == "video":
-            # Create processor track with VLM service
-            processor_track = VideoProcessorTrack(relay.subscribe(track), vlm_service)
-
+            # Create processor track with VLM service and text callback
+            processor_track = VideoProcessorTrack(
+                relay.subscribe(track), 
+                vlm_service,
+                text_callback=broadcast_text_update
+            )
+            
             # Add processed track back to connection
             pc.addTrack(processor_track)
             logger.info(f"Added processed video track back to peer connection")
@@ -139,6 +199,7 @@ def main():
     # Create web application
     app = web.Application()
     app.router.add_get("/", index)
+    app.router.add_get("/ws", websocket_handler)
     app.router.add_post("/offer", offer)
     app.on_shutdown.append(on_shutdown)
 
