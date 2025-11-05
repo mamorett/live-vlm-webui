@@ -158,6 +158,46 @@ python -m vllm.entrypoints.openai.api_server \
   --port 8000
 ```
 
+### Option B2: vLLM on Jetson Thor (Container)
+
+For NVIDIA Jetson Thor, use the official vLLM container from NGC:
+
+```bash
+# Pull and run vLLM container with model cache mounted
+docker run --rm -it \
+  --network host \
+  --shm-size=16g \
+  --ulimit memlock=-1 \
+  --ulimit stack=67108864 \
+  --runtime=nvidia \
+  --name=vllm \
+  -v $HOME/data/models/huggingface:/root/.cache/huggingface \
+  -v $HOME/data/vllm_cache:/root/.cache/vllm \
+  nvcr.io/nvidia/vllm:25.10-py3
+
+# Inside the container, serve a vision model:
+vllm serve microsoft/Phi-3.5-vision-instruct --trust-remote-code
+```
+
+**Notes:**
+- Model files are cached in `$HOME/data/models/huggingface` for reuse
+- First run will download the model (may take some time depending on model size)
+- vLLM will be accessible at `http://localhost:8000` (default port)
+- Use `--port` flag to change the port if needed
+- For Phi-3.5-vision, approximately 8GB VRAM required
+
+**Other recommended vision models for Jetson Thor:**
+```bash
+# Smaller, faster option (4B parameters)
+vllm serve microsoft/Phi-3.5-vision-instruct --trust-remote-code
+
+# Llama 3.2 Vision (11B parameters, higher quality)
+vllm serve meta-llama/Llama-3.2-11B-Vision-Instruct --trust-remote-code
+
+# Qwen2-VL (7B parameters, good balance)
+vllm serve Qwen/Qwen2-VL-7B-Instruct --trust-remote-code
+```
+
 ### Option C: SGLang
 ```bash
 # Install SGLang
@@ -168,6 +208,56 @@ python -m sglang.launch_server \
   --model-path llama-3.2-11b-vision-instruct \
   --port 30000
 ```
+
+### Option D: NVIDIA API Catalog (Cloud)
+
+Use NVIDIA's hosted API for instant access to vision models without local setup:
+
+**1. Get your API Key:**
+- Visit [NVIDIA API Catalog](https://build.nvidia.com/)
+- Sign in with your NVIDIA account (free)
+- Navigate to a vision model (e.g., [Llama 3.2 Vision](https://build.nvidia.com/meta/llama-3.2-90b-vision-instruct))
+- Click "Get API Key" to generate your key
+
+**2. Test with curl:**
+```bash
+# Example: Query Llama 3.2 Vision with an image
+curl -X POST "https://ai.api.nvidia.com/v1/gr/meta/llama-3.2-90b-vision-instruct/chat/completions" \
+  -H "Authorization: Bearer nvapi-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxXYZ" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "meta/llama-3.2-90b-vision-instruct",
+    "messages": [
+      {
+        "role": "user",
+        "content": "What is in this image? <img src=\"data:image/png;base64,iVBORw0K...\" />"
+      }
+    ],
+    "max_tokens": 512
+  }'
+```
+
+**3. Use with live-vlm-webui:**
+
+No server setup needed! Just configure via the web UI:
+- **API Base URL**: `https://ai.api.nvidia.com/v1/gr`
+- **API Key**: `nvapi-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxXYZ` (your actual key)
+- **Model**: Select from available vision models (e.g., `meta/llama-3.2-90b-vision-instruct`)
+
+The WebUI will auto-detect NVIDIA API Catalog and show/hide the API Key field accordingly.
+
+**Available Vision Models:**
+- `meta/llama-3.2-90b-vision-instruct` - Highest quality, 90B parameters
+- `meta/llama-3.2-11b-vision-instruct` - Good balance, 11B parameters
+- `microsoft/phi-3-vision-128k-instruct` - Fast and efficient, 4.2B parameters
+- `nvidia/neva-22b` - NVIDIA's vision model, 22B parameters
+
+**Notes:**
+- Free tier available with rate limits
+- No local GPU required
+- Lowest latency for users without local VLM infrastructure
+- API key format: `nvapi-` followed by ~60 alphanumeric characters
+- Keep your API key secure - don't commit to git!
 
 ## Usage
 

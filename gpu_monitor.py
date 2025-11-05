@@ -373,8 +373,36 @@ class JetsonThorMonitor(GPUMonitor):
                 if hasattr(self.jtop_instance, 'board'):
                     board_info = self.jtop_instance.board
                     if isinstance(board_info, dict):
-                        # Try different keys that might contain the board name
-                        board_name = board_info.get('platform', board_info.get('hardware', None))
+                        # Debug: log board_info structure once
+                        if not hasattr(self, '_board_info_logged'):
+                            logger.info(f"Board info structure: {list(board_info.keys())}")
+                            if 'info' in board_info:
+                                logger.info(f"Board info['info'] keys: {list(board_info['info'].keys()) if isinstance(board_info['info'], dict) else type(board_info['info'])}")
+                            if 'hardware' in board_info:
+                                logger.info(f"Board info['hardware']: {board_info['hardware']}")
+                            if 'platform' in board_info:
+                                logger.info(f"Board info['platform']: {board_info['platform']}")
+                            self._board_info_logged = True
+
+                        # Try to get board name from various possible locations
+                        # Check 'hardware' dict first (jtop structure)
+                        if 'hardware' in board_info and isinstance(board_info['hardware'], dict):
+                            board_name = board_info['hardware'].get('Model') or board_info['hardware'].get('Module')
+                        # Fallback to 'info' dict if available
+                        if not board_name and 'info' in board_info and isinstance(board_info['info'], dict):
+                            board_name = board_info['info'].get('Machine') or board_info['info'].get('Model')
+                        # Fallback to 'platform' if it's a string
+                        if not board_name and 'platform' in board_info:
+                            platform = board_info['platform']
+                            if isinstance(platform, dict):
+                                board_name = platform.get('Machine')
+                            elif isinstance(platform, str):
+                                board_name = platform
+
+                        # Final fallback: if still not a string, stringify safely
+                        if board_name and not isinstance(board_name, str):
+                            logger.warning(f"Board name is not a string: {type(board_name)}, value: {board_name}")
+                            board_name = str(board_name) if board_name else None
 
                 stats = {
                     "platform": "Jetson Thor (jtop)",

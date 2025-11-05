@@ -1210,14 +1210,12 @@
 
             <!-- System Stats -->
             <div class="result-card" id="systemStatsCard">
-                <div class="result-header">
-                    <div class="result-title">
-                        📊 Local System Stats
-                        <span style="font-weight: 400; font-size: 11px; color: var(--text-muted); text-transform: none;">
-                            (<span id="systemInfoHeader">Loading...</span>)
-                        </span>
-            </div>
-        </div>
+                <div class="result-header" style="display: flex; justify-content: space-between; align-items: center; gap: 20px;">
+                    <div class="result-title">📊 Local System Stats</div>
+                    <div style="font-size: 12px; color: var(--text-secondary); text-align: right; font-weight: 400; flex-shrink: 1; min-width: 0;">
+                        <span id="systemInfoHeader">Loading...</span>
+                    </div>
+                </div>
 
                 <div class="stats-grid">
                     <div class="stat-card">
@@ -1874,16 +1872,24 @@
             const hostname = stats.hostname || 'System';
             const cpuModel = stats.cpu_model || 'Unknown CPU';
             const gpuName = stats.gpu_name || 'Unknown GPU';
-            const boardName = stats.board_name;  // e.g., "Jetson AGX Thor Developer Kit"
+            let boardName = stats.board_name;  // e.g., "Jetson AGX Thor Developer Kit"
+
+            // Safety check: ensure boardName is a string (not an object)
+            if (boardName && typeof boardName === 'object') {
+                console.warn('Board name is an object, expected string:', boardName);
+                boardName = null;  // Ignore it and fall back to regular display
+            }
 
             // Format header based on whether we have a board name (Jetson) or not (PC)
             const systemInfoElem = document.getElementById('systemInfoHeader');
-            if (boardName) {
-                // Jetson: Show board name prominently
-                systemInfoElem.innerHTML = `<b>${boardName}</b> (${hostname}) with ${gpuName} GPU`;
+            if (boardName && typeof boardName === 'string') {
+                // Jetson: Show board name prominently with GPU suffix
+                const gpuDisplayName = gpuName.includes('GPU') ? gpuName : `${gpuName} GPU`;
+                systemInfoElem.innerHTML = `<b>${boardName}</b> (${hostname}) with ${gpuDisplayName}`;
             } else {
                 // PC: Show hostname with CPU and GPU
-                systemInfoElem.textContent = `${hostname} (${cpuModel}) with ${gpuName}`;
+                const gpuDisplayName = gpuName.includes('GPU') ? gpuName : `${gpuName} GPU`;
+                systemInfoElem.textContent = `${hostname} (${cpuModel}) with ${gpuDisplayName}`;
             }
 
             // GPU (Green)
