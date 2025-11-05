@@ -496,23 +496,34 @@
         }
 
         .result-prompt {
-            font-size: 11px;
-            color: var(--text-muted);
-            font-style: italic;
+            font-size: 13px;
+            color: var(--text-primary);
             margin-top: 16px;
             margin-bottom: 12px;
-            padding: 8px 12px;
-            background: var(--bg-tertiary);
-            border-radius: 4px;
-            border-left: 3px solid var(--accent-color);
+            margin-left: 40px;
+            padding: 12px 16px;
+            background: var(--accent-color);
+            color: white;
+            border-radius: 16px 16px 4px 16px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            max-width: 85%;
+            word-wrap: break-word;
         }
 
         .result-text {
-            font-size: 16px;
+            font-size: 15px;
             line-height: 1.6;
             color: var(--text-primary);
             transition: opacity 3s ease;
             min-height: 60px;
+            margin-top: 12px;
+            margin-right: 40px;
+            padding: 14px 18px;
+            background: var(--bg-tertiary);
+            border-radius: 16px 16px 16px 4px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            max-width: 90%;
+            word-wrap: break-word;
         }
 
         .result-text.fade {
@@ -720,6 +731,7 @@
                             <div class="input-hint">Required for OpenAI and NVIDIA API Catalog, etc.</div>
                         </div>
                     </div>
+
                     <div class="form-group">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                             <label style="margin-bottom: 0;">Model Selection</label>
@@ -841,7 +853,7 @@
                     <div class="result-header-left">
                         <div class="result-title">🤖 VLM Output</div>
                         <div class="result-subtitle">
-                            Model: <span id="modelName">--</span>
+                            Model: <span id="modelName" style="font-weight: 600; color: var(--accent-color);">--</span>
                         </div>
                     </div>
                     <div class="metrics-inline" id="metricsInline" style="display: none;">
@@ -1152,7 +1164,9 @@
                 if (data.models && data.models.length > 0) {
                     modelSelect.innerHTML = '';
                     let currentModel = null;
-                    data.models.forEach(model => {
+                    let autoSelectedModel = null;
+
+                    data.models.forEach((model, index) => {
                         const option = document.createElement('option');
                         option.value = model.id;
                         option.textContent = model.id;
@@ -1162,6 +1176,17 @@
                         }
                         modelSelect.appendChild(option);
                     });
+
+                    // If no current model, auto-select first model and apply
+                    if (!currentModel && data.models.length > 0) {
+                        autoSelectedModel = data.models[0].id;
+                        modelSelect.value = autoSelectedModel;
+                        currentModel = autoSelectedModel;
+
+                        // Auto-apply the new model
+                        console.log(`Auto-selected model: ${autoSelectedModel}`);
+                        applyApiSettings({ showFeedback: false });
+                    }
 
                     // Update model name in VLM output header
                     if (currentModel) {
@@ -1220,8 +1245,9 @@
                     max_tokens: tokens
                 }));
 
-                // Update the displayed prompt
-                currentPrompt.textContent = `Prompt: "${newPrompt.substring(0, 100)}${newPrompt.length > 100 ? '...' : ''}" | Max tokens: ${tokens}`;
+                // Update the displayed prompt (chat bubble style)
+                const promptPreview = newPrompt.length > 150 ? newPrompt.substring(0, 150) + '...' : newPrompt;
+                currentPrompt.textContent = `💬 ${promptPreview}`;
                 updateStatus('Prompt configured', 'connected');
 
                 updatePromptBtn.textContent = '✓ Applied';
@@ -1235,15 +1261,60 @@
 
         refreshModelsBtn.addEventListener('click', fetchModels);
 
-        // Watch for API Base URL changes
+        // Helper function to apply API settings to server
+        function applyApiSettings(options = {}) {
+            const currentApiBase = apiBaseUrl.value.trim();
+            const currentApiKey = apiKey.value.trim();
+            const currentModel = modelSelect.value;
+
+            if (!currentApiBase) {
+                return; // Silently skip if no API base
+            }
+
+            if (!currentModel) {
+                return; // Silently skip if no model selected yet
+            }
+
+            // Send update to server
+            if (websocket && websocket.readyState === WebSocket.OPEN) {
+                websocket.send(JSON.stringify({
+                    type: 'update_model',
+                    model: currentModel,
+                    api_base: currentApiBase,
+                    api_key: currentApiKey
+                }));
+
+                if (options.showFeedback) {
+                    updateStatus('API settings updated', 'connected');
+                }
+
+                // Refresh models from new endpoint if requested
+                if (options.refreshModels) {
+                    fetchModels();
+                }
+            }
+        }
+
+        // Auto-apply API settings when API Base URL changes
         apiBaseUrl.addEventListener('blur', (e) => {
             checkApiKeyRequirement(e.target.value);
             updateSystemStatsVisibility(e.target.value);
+            applyApiSettings({ refreshModels: true, showFeedback: true });
         });
 
         apiBaseUrl.addEventListener('change', (e) => {
             checkApiKeyRequirement(e.target.value);
             updateSystemStatsVisibility(e.target.value);
+            applyApiSettings({ refreshModels: true, showFeedback: true });
+        });
+
+        // Auto-apply API settings when API Key changes (with debounce)
+        let apiKeyDebounceTimer;
+        apiKey.addEventListener('input', () => {
+            clearTimeout(apiKeyDebounceTimer);
+            apiKeyDebounceTimer = setTimeout(() => {
+                applyApiSettings({ showFeedback: false });
+            }, 1000); // Wait 1 second after user stops typing
         });
 
         // API Presets Menu
@@ -1272,6 +1343,9 @@
                 // Trigger checks
                 checkApiKeyRequirement(url);
                 updateSystemStatsVisibility(url);
+
+                // Auto-apply new API settings
+                applyApiSettings({ refreshModels: true, showFeedback: true });
 
                 // Update hint
                 const hint = document.getElementById('apiBaseHint');
@@ -1362,7 +1436,7 @@
             const cpuModel = stats.cpu_model || 'Unknown CPU';
             const gpuName = stats.gpu_name || 'Unknown GPU';
             const boardName = stats.board_name;  // e.g., "Jetson AGX Thor Developer Kit"
-            
+
             // Format header based on whether we have a board name (Jetson) or not (PC)
             const systemInfoElem = document.getElementById('systemInfoHeader');
             if (boardName) {
@@ -1485,6 +1559,18 @@
                         checkApiKeyRequirement(data.api_base);
                         updateSystemStatsVisibility(data.api_base);
                     }
+                } else if (data.type === 'model_updated') {
+                    // Model was updated on server
+                    if (data.model) {
+                        document.getElementById('modelName').textContent = data.model;
+                        console.log('Model updated to:', data.model);
+                    }
+                } else if (data.type === 'prompt_updated') {
+                    // Prompt was updated on server (already handled in applyPrompt)
+                    console.log('Prompt updated:', data.prompt);
+                } else if (data.type === 'processing_updated') {
+                    // Processing interval was updated on server
+                    console.log('Processing interval updated:', data.process_every);
                 }
             };
 
@@ -1627,9 +1713,9 @@
 
             // Initialize prompt display
             const initialPrompt = promptText.value.trim();
-            const tokens = parseInt(maxTokens.value) || 512;
             if (initialPrompt) {
-                currentPrompt.textContent = `Prompt: "${initialPrompt.substring(0, 100)}${initialPrompt.length > 100 ? '...' : ''}" | Max tokens: ${tokens}`;
+                const promptPreview = initialPrompt.length > 150 ? initialPrompt.substring(0, 150) + '...' : initialPrompt;
+                currentPrompt.textContent = `💬 ${promptPreview}`;
             }
         });
     </script>

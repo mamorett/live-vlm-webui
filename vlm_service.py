@@ -38,6 +38,7 @@ class VLMService:
         """
         self.model = model
         self.api_base = api_base
+        self.api_key = api_key if api_key else "EMPTY"
         self.prompt = prompt
         self.max_tokens = max_tokens
         self.client = AsyncOpenAI(
