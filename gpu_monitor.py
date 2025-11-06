@@ -491,6 +491,147 @@ class JetsonThorMonitor(GPUMonitor):
                 logger.error(f"Error closing jtop: {e}")
 
 
+class AppleSiliconMonitor(GPUMonitor):
+    """
+    Apple Silicon GPU monitoring for M1/M2/M3/M4 chips
+
+    Note: Ollama uses Metal (GPU cores), not the Neural Engine.
+    The Neural Engine is used by Core ML, not llama.cpp-based inference.
+
+    For detailed monitoring, install: brew install asitop
+    Then run: sudo asitop
+    """
+
+    def __init__(self, history_size: int = 60):
+        super().__init__(history_size)
+        self.available = False
+        self.gpu_name = "Apple GPU"
+        self.chip_type = "Unknown"
+        self.gpu_cores = 0
+        self.use_powermetrics = False
+        self.powermetrics_warned = False
+
+        # Detect chip type and GPU core count
+        try:
+            result = subprocess.run(
+                ["sysctl", "-n", "machdep.cpu.brand_string"],
+                capture_output=True,
+                text=True,
+                timeout=1
+            )
+            if result.returncode == 0:
+                cpu_brand = result.stdout.strip()
+                # Extract chip type (M1, M2, M3, M4, etc.)
+                if "Apple" in cpu_brand:
+                    for chip in ["M4", "M3", "M2", "M1"]:  # Check in reverse order for correct match
+                        if chip in cpu_brand:
+                            self.chip_type = chip
+                            self.gpu_name = f"Apple {chip} GPU"
+
+                            # Estimate GPU cores based on chip variant
+                            if "Max" in cpu_brand or "Ultra" in cpu_brand:
+                                self.gpu_cores = 32 if chip == "M1" else 38  # Rough estimate
+                            elif "Pro" in cpu_brand:
+                                self.gpu_cores = 16 if chip == "M1" else 19
+                            else:
+                                self.gpu_cores = 8  # Base models
+                            break
+                logger.info(f"Apple Silicon detected: {cpu_brand} ({self.gpu_cores}-core GPU estimated)")
+                self.available = True
+        except Exception as e:
+            logger.warning(f"Failed to detect Apple Silicon: {e}")
+
+        # Check if powermetrics is available (requires sudo, so likely not usable)
+        try:
+            result = subprocess.run(
+                ["which", "powermetrics"],
+                capture_output=True,
+                timeout=1
+            )
+            if result.returncode == 0:
+                self.use_powermetrics = True
+                logger.info("powermetrics found - but requires sudo for GPU stats")
+        except:
+            pass
+
+        if self.available:
+            logger.info(f"Apple Silicon monitoring initialized")
+            logger.info(f"💡 Ollama uses Metal (GPU) for inference, not Neural Engine")
+            logger.info(f"💡 For detailed monitoring: brew install asitop && sudo asitop")
+            logger.info(f"💡 Or use Activity Monitor > Window > GPU History")
+
+    def get_stats(self) -> Dict:
+        """Get current system stats for Apple Silicon"""
+        system_stats = self.get_cpu_ram_stats()
+
+        if not self.available:
+            return {
+                "platform": "Apple Silicon (unavailable)",
+                "gpu_name": "N/A",
+                "gpu_percent": 0,
+                "vram_used_gb": 0,
+                "vram_total_gb": 0,
+                "vram_percent": 0,
+                **system_stats
+            }
+
+        # Try to get GPU stats via powermetrics (requires sudo, so will likely fail)
+        gpu_percent = 0
+        if self.use_powermetrics and not self.powermetrics_warned:
+            try:
+                # powermetrics requires sudo and is heavyweight
+                # This will likely fail, but we try once
+                result = subprocess.run(
+                    ["powermetrics", "-n", "1", "-i", "100", "--samplers", "gpu_power"],
+                    capture_output=True,
+                    text=True,
+                    timeout=2
+                )
+                if result.returncode == 0 and result.stdout:
+                    # Parse GPU active residency if available
+                    for line in result.stdout.split('\n'):
+                        if 'GPU active residency' in line:
+                            # Extract percentage
+                            try:
+                                gpu_percent = float(line.split(':')[1].strip().rstrip('%'))
+                            except:
+                                pass
+            except subprocess.TimeoutExpired:
+                if not self.powermetrics_warned:
+                    logger.warning("powermetrics requires sudo - GPU utilization unavailable")
+                    logger.info("💡 Install asitop for GPU monitoring: brew install asitop && sudo asitop")
+                    self.powermetrics_warned = True
+                    self.use_powermetrics = False
+            except Exception as e:
+                if not self.powermetrics_warned:
+                    logger.warning(f"powermetrics not accessible: {e}")
+                    self.powermetrics_warned = True
+                    self.use_powermetrics = False
+
+        # Apple Silicon uses unified memory (shared between CPU and GPU)
+        stats = {
+            "platform": f"Apple Silicon ({self.chip_type})",
+            "gpu_name": self.gpu_name,
+            "gpu_cores": self.gpu_cores,
+            "gpu_percent": gpu_percent,  # Will be 0 without sudo powermetrics
+            "vram_used_gb": system_stats["ram_used_gb"],  # Unified memory
+            "vram_total_gb": system_stats["ram_total_gb"],  # Unified memory
+            "vram_percent": system_stats["ram_percent"],
+            "temp_c": None,  # Would need IOKit APIs or asitop
+            "power_w": None,  # Would need sudo powermetrics
+            **system_stats
+        }
+
+        # Update history
+        self.update_history(stats)
+
+        return stats
+
+    def cleanup(self):
+        """Cleanup resources"""
+        pass
+
+
 class JetsonOrinMonitor(GPUMonitor):
     """Jetson Orin GPU monitoring using jtop (jetson_stats)"""
 
@@ -627,7 +768,7 @@ def create_monitor(platform: Optional[str] = None) -> GPUMonitor:
     Factory function to create appropriate GPU monitor
 
     Args:
-        platform: Force specific platform ('nvidia', 'jetson_orin', 'jetson_thor', etc.)
+        platform: Force specific platform ('nvidia', 'jetson_orin', 'jetson_thor', 'apple', etc.)
                  If None, auto-detect
 
     Returns:
@@ -638,6 +779,14 @@ def create_monitor(platform: Optional[str] = None) -> GPUMonitor:
         return JetsonThorMonitor()
     if platform == "jetson_orin":
         return JetsonOrinMonitor()
+    if platform == "apple" or platform == "apple_silicon":
+        return AppleSiliconMonitor()
+
+    # Auto-detect macOS / Apple Silicon
+    import platform as platform_module
+    if platform is None and platform_module.system() == "Darwin":
+        logger.info("Auto-detected macOS - using AppleSiliconMonitor")
+        return AppleSiliconMonitor()
 
     # Auto-detect Jetson Thor by checking for Thor-specific paths
     if platform is None:

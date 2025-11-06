@@ -56,3 +56,7 @@ key.pem
 # Docker
 docker-compose.override.yml
 
+# Cursor-generated reference documentation (keep locally, don't commit)
+docs/cursor/*
+!docs/cursor/README.md
+
