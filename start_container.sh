@@ -197,12 +197,12 @@ if [ "$PLATFORM" = "mac" ]; then
     # - Use port mapping (not host network)
     # - Connect to Ollama on host via host.docker.internal
     # - No GPU flags needed
-    
+
     # Detect Mac system info to pass to container
     MAC_HOSTNAME=$(hostname -s)
     MAC_CHIP=$(sysctl -n machdep.cpu.brand_string 2>/dev/null || echo "Apple Silicon")
     MAC_PRODUCT_NAME=$(system_profiler SPHardwareDataType 2>/dev/null | grep "Model Name" | awk -F': ' '{print $2}' || echo "Mac")
-    
+
     DOCKER_CMD="docker run -d \
       --name ${CONTAINER_NAME} \
       -p 8090:8090 \
@@ -212,6 +212,23 @@ if [ "$PLATFORM" = "mac" ]; then
       -e HOST_PRODUCT_NAME=${MAC_PRODUCT_NAME} \
       -e HOST_CPU_MODEL=${MAC_CHIP} \
       ${IMAGE_NAME}"
+
+    # Show Mac-specific notice
+    echo ""
+    echo -e "${YELLOW}⚠️  Mac Docker Limitation:${NC}"
+    echo -e "${YELLOW}   WebRTC camera does NOT work in Docker on Mac (Docker Desktop limitation)${NC}"
+    echo -e "${YELLOW}   The container will start and connect to Ollama, but camera will fail.${NC}"
+    echo ""
+    echo -e "${GREEN}💡 For camera support on Mac, run natively instead:${NC}"
+    echo -e "${GREEN}   python3 server.py --host 0.0.0.0 --port 8090 --ssl-cert cert.pem --ssl-key key.pem \\${NC}"
+    echo -e "${GREEN}     --api-base http://localhost:11434/v1 --model llama3.2-vision:11b${NC}"
+    echo ""
+    read -p "Continue with Docker anyway? (y/N): " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        echo -e "${YELLOW}Aborted. Run natively for full functionality.${NC}"
+        exit 0
+    fi
 else
     # Linux (PC, Jetson) configuration
     DOCKER_CMD="docker run -d \

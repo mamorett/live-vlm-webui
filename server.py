@@ -474,6 +474,16 @@ async def offer(request):
         if pc.connectionState in ["failed", "closed"]:
             await pc.close()
             pcs.discard(pc)
+    
+    @pc.on("iceconnectionstatechange")
+    async def on_iceconnectionstatechange():
+        logger.info(f"ICE connection state: {pc.iceConnectionState}")
+        if pc.iceConnectionState == "failed":
+            logger.error("ICE connection failed - check firewall/NAT settings")
+    
+    @pc.on("icegatheringstatechange")
+    async def on_icegatheringstatechange():
+        logger.info(f"ICE gathering state: {pc.iceGatheringState}")
 
     @pc.on("track")
     def on_track(track):
