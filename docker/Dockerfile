@@ -1,7 +1,4 @@
-# Dockerfile for NVIDIA Jetson Orin (AGX Orin, Orin Nano, Orin NX)
-# Based on L4T r36.2.0 (JetPack 6.0)
-
-FROM nvcr.io/nvidia/l4t-base:r36.2.0
+FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04
 
 # Install Python and system dependencies
 RUN apt-get update && apt-get install -y \
@@ -30,28 +27,25 @@ RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.10 1 &
 # Set working directory
 WORKDIR /app
 
-# Copy requirements first for better layer caching
+# Upgrade pip and build tools
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel
+
+# Copy package files first for better layer caching
+COPY pyproject.toml MANIFEST.in ./
 COPY requirements.txt .
 
-# Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+# Copy application source
+COPY src/ ./src/
 
-# Install jetson-stats for GPU monitoring
-# Note: jetson-stats requires access to system hardware interfaces
-# and may need additional permissions to work fully in Docker
-RUN pip install --no-cache-dir jetson-stats
+# Install the package in editable mode (includes all dependencies)
+RUN pip install --no-cache-dir -e .
 
-# Copy application files
-COPY server.py .
-COPY vlm_service.py .
-COPY video_processor.py .
-COPY gpu_monitor.py .
-COPY index.html .
-COPY generate_cert.sh .
-COPY images/ ./images/
-
-# Make generate_cert.sh executable
+# Copy scripts
+COPY scripts/generate_cert.sh .
 RUN chmod +x generate_cert.sh
+
+# Copy images for documentation/assets if needed
+COPY images/ ./images/
 
 # Generate self-signed SSL certificates (can be overridden by volume mount)
 RUN ./generate_cert.sh
@@ -64,5 +58,5 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('https://localhost:8090', timeout=5, context=__import__('ssl')._create_unverified_context())" || exit 1
 
 # Run the server
-CMD ["python", "server.py", "--host", "0.0.0.0", "--port", "8090", "--ssl-cert", "cert.pem", "--ssl-key", "key.pem"]
+CMD ["python", "-m", "live_vlm_webui.server", "--host", "0.0.0.0", "--port", "8090", "--ssl-cert", "cert.pem", "--ssl-key", "key.pem"]
 

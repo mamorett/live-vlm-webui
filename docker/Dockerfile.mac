@@ -42,24 +42,26 @@ RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.10 1 &
 # Set working directory
 WORKDIR /app
 
-# Copy requirements first for better layer caching
+# Upgrade pip and build tools
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel
+
+# Copy package files first for better layer caching
+COPY pyproject.toml MANIFEST.in ./
 COPY requirements.txt .
 
-# Install Python dependencies
+# Copy application source
+COPY src/ ./src/
+
+# Install the package in editable mode (includes all dependencies)
 # Note: pynvml will install but won't detect GPU (not on macOS)
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -e .
 
-# Copy application files
-COPY server.py .
-COPY vlm_service.py .
-COPY video_processor.py .
-COPY gpu_monitor.py .
-COPY index.html .
-COPY generate_cert.sh .
-COPY images/ ./images/
-
-# Make generate_cert.sh executable
+# Copy scripts
+COPY scripts/generate_cert.sh .
 RUN chmod +x generate_cert.sh
+
+# Copy images for documentation/assets if needed
+COPY images/ ./images/
 
 # Generate self-signed SSL certificates (can be overridden by volume mount)
 RUN ./generate_cert.sh
@@ -81,5 +83,5 @@ ENV VLM_MODEL=llama3.2-vision:11b
 # Run the server
 # Note: Will connect to Ollama running on host (use host.docker.internal)
 # Use shell form to expand environment variables
-CMD python server.py --host 0.0.0.0 --port 8090 --ssl-cert cert.pem --ssl-key key.pem --api-base ${VLM_API_BASE} --model ${VLM_MODEL}
+CMD python -m live_vlm_webui.server --host 0.0.0.0 --port 8090 --ssl-cert cert.pem --ssl-key key.pem --api-base ${VLM_API_BASE} --model ${VLM_MODEL}
 

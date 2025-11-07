@@ -1,0 +1,164 @@
+#!/bin/bash
+# Start Live VLM WebUI Server with HTTPS
+
+# Get script directory and navigate to project root
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+cd "$SCRIPT_DIR/.."
+
+# Detect and activate virtual environment if needed
+if [ -z "$VIRTUAL_ENV" ] && [ -z "$CONDA_DEFAULT_ENV" ]; then
+    # Check for .venv (preferred)
+    if [ -d ".venv" ]; then
+        echo "Activating .venv virtual environment..."
+        source .venv/bin/activate
+        echo ""
+    # Check for venv (alternative)
+    elif [ -d "venv" ]; then
+        echo "Activating venv virtual environment..."
+        source venv/bin/activate
+        echo ""
+    else
+        echo "⚠️  No virtual environment detected!"
+        echo "Please create one first:"
+        echo "  python3 -m venv .venv"
+        echo "  source .venv/bin/activate"
+        echo "  pip install -r requirements.txt"
+        echo ""
+        echo "Or activate your conda environment:"
+        echo "  conda activate live-vlm-webui"
+        exit 1
+    fi
+fi
+
+# Check if the package is installed in the current environment
+if ! python -c "import live_vlm_webui" 2>/dev/null; then
+    echo "❌ Error: live_vlm_webui package not found!"
+    echo ""
+
+    # Detect which environment tool is available (prioritize venv over conda)
+    if [ -n "$VIRTUAL_ENV" ]; then
+        ENV_TYPE="virtual environment '$(basename $VIRTUAL_ENV)'"
+    elif [ -n "$CONDA_DEFAULT_ENV" ]; then
+        ENV_TYPE="conda environment '$CONDA_DEFAULT_ENV'"
+    else
+        ENV_TYPE="current environment"
+    fi
+
+    echo "You are in $ENV_TYPE but the package is not installed."
+    echo ""
+    echo "📋 To fix this, run ONE of the following:"
+    echo ""
+
+    # Check if in project directory with venv
+    if [ -d ".venv" ]; then
+        echo "Option 1: Use the project's virtual environment"
+        echo "  source .venv/bin/activate"
+        echo "  pip install -e ."
+        echo ""
+    fi
+
+    # Conda option
+    if command -v conda &> /dev/null; then
+        echo "Option 2: Install in conda environment"
+        echo "  conda activate $CONDA_DEFAULT_ENV"
+        echo "  pip install -e ."
+        echo ""
+    fi
+
+    # Generic pip install
+    echo "Option 3: Install in current environment"
+    echo "  pip install -e ."
+    echo ""
+
+    echo "💡 Tip: 'pip install -e .' installs the package in editable mode"
+    echo "   (changes to source files take effect immediately)"
+    echo ""
+    exit 1
+fi
+
+# Check if certificates exist
+if [ ! -f "cert.pem" ] || [ ! -f "key.pem" ]; then
+    echo "Certificates not found. Generating..."
+    ./scripts/generate_cert.sh
+    echo ""
+fi
+
+# Check if port 8090 is already in use
+PORT_IN_USE=false
+
+# Method 1: Try to bind to the port (most reliable)
+if python -c "import socket; s = socket.socket(); s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1); s.bind(('0.0.0.0', 8090)); s.close()" 2>/dev/null; then
+    PORT_IN_USE=false
+else
+    PORT_IN_USE=true
+fi
+
+# Method 2: Check for Docker containers (if method 1 says port is in use)
+DOCKER_CONTAINER=""
+if [ "$PORT_IN_USE" = true ] && command -v docker &> /dev/null; then
+    DOCKER_CONTAINER=$(docker ps --filter "name=live-vlm-webui" --format "{{.Names}}" 2>/dev/null | head -1)
+fi
+
+if [ "$PORT_IN_USE" = true ]; then
+    echo "❌ Error: Port 8090 is already in use!"
+    echo ""
+
+    if [ -n "$DOCKER_CONTAINER" ]; then
+        echo "🐳 Found Docker container: $DOCKER_CONTAINER"
+        echo ""
+        echo "📋 To fix this, stop the Docker container:"
+        echo "  docker stop $DOCKER_CONTAINER"
+        echo ""
+    else
+        echo "This could be:"
+        echo "  • Another instance of this server running"
+        echo "  • A Docker container running the WebUI"
+        echo "  • Another application using port 8090"
+        echo ""
+        echo "📋 To fix this:"
+        echo ""
+        echo "Option 1: Check Docker containers"
+        echo "  docker ps  # Check running containers"
+        echo "  docker stop live-vlm-webui  # Stop if found"
+        echo ""
+        echo "Option 2: Find and kill the process"
+        if command -v lsof &> /dev/null; then
+            PID=$(lsof -ti :8090 2>/dev/null | head -1)
+            if [ -n "$PID" ]; then
+                PROC_INFO=$(ps -p $PID -o comm= 2>/dev/null || echo "unknown")
+                echo "  Process using port 8090: PID $PID ($PROC_INFO)"
+                echo "  kill $PID"
+            else
+                echo "  lsof -ti :8090  # Find the process"
+                echo "  kill <PID>      # Stop it"
+            fi
+        else
+            echo "  netstat -tulpn | grep :8090  # Find the process"
+            echo "  kill <PID>                    # Stop it"
+        fi
+        echo ""
+        echo "Option 3: Use a different port"
+        echo "  ./scripts/start_server.sh --port 8091"
+        echo ""
+    fi
+    exit 1
+fi
+
+# Start server with HTTPS
+echo "Starting Live VLM WebUI server..."
+echo "Auto-detecting local VLM services (Ollama, vLLM, SGLang)..."
+echo "Will fall back to NVIDIA API Catalog if none found"
+echo ""
+echo "⚠️  Your browser will show a security warning (self-signed certificate)"
+echo "    Click 'Advanced' → 'Proceed to localhost' (or 'Accept Risk')"
+echo ""
+
+# Run server with auto-detection (no --model or --api-base specified)
+# To override, use: ./scripts/start_server.sh --model YOUR_MODEL --api-base YOUR_API
+python -m live_vlm_webui.server \
+  --ssl-cert cert.pem \
+  --ssl-key key.pem \
+  --host 0.0.0.0 \
+  --port 8090 \
+  "$@"
+

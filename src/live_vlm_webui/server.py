@@ -14,9 +14,9 @@ from aiohttp import web
 from aiortc import RTCPeerConnection, RTCSessionDescription, MediaStreamTrack, RTCConfiguration, RTCIceServer
 from aiortc.contrib.media import MediaRelay
 
-from vlm_service import VLMService
-from video_processor import VideoProcessorTrack
-from gpu_monitor import create_monitor
+from .vlm_service import VLMService
+from .video_processor import VideoProcessorTrack
+from .gpu_monitor import create_monitor
 
 # Configure logging
 logging.basicConfig(
@@ -136,7 +136,7 @@ async def detect_local_service_and_model():
 
 async def index(request):
     """Serve the main HTML page"""
-    content = open(os.path.join(os.path.dirname(__file__), "index.html"), "r").read()
+    content = open(os.path.join(os.path.dirname(__file__), "static", "index.html"), "r").read()
     return web.Response(content_type="text/html", text=content)
 
 
@@ -324,7 +324,7 @@ async def websocket_handler(request):
                         try:
                             process_every = int(process_every)
                             if 1 <= process_every <= 3600:  # Up to 3600 frames (2 minutes @ 30fps)
-                                from video_processor import VideoProcessorTrack
+                                from .video_processor import VideoProcessorTrack
                                 old_value = VideoProcessorTrack.process_every_n_frames
                                 VideoProcessorTrack.process_every_n_frames = process_every
                                 logger.info(f"Processing interval updated: {old_value} → {process_every} frames")
@@ -344,7 +344,7 @@ async def websocket_handler(request):
                         try:
                             max_latency = float(max_latency)
                             if 0 <= max_latency <= 10.0:
-                                from video_processor import VideoProcessorTrack
+                                from .video_processor import VideoProcessorTrack
                                 old_value = VideoProcessorTrack.max_frame_latency
                                 VideoProcessorTrack.max_frame_latency = max_latency
                                 status = "disabled" if max_latency == 0 else f"{max_latency:.1f}s"
@@ -660,7 +660,9 @@ def main():
     app.router.add_post("/offer", offer)
 
     # Serve static files (images, etc.)
-    images_dir = os.path.join(os.path.dirname(__file__), "images")
+    # Images directory is at project root, two levels up from this file
+    images_dir = os.path.join(os.path.dirname(__file__), "..", "..", "images")
+    images_dir = os.path.abspath(images_dir)
     if os.path.exists(images_dir):
         app.router.add_static("/images", images_dir, name="images")
         logger.info(f"Serving static files from: {images_dir}")
