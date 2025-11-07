@@ -6,7 +6,7 @@ Run this to verify CPU/RAM stats work correctly
 
 import asyncio
 import logging
-from gpu_monitor import create_monitor
+from live_vlm_webui.gpu_monitor import create_monitor
 
 # Setup logging
 logging.basicConfig(

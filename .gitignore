@@ -16,9 +16,15 @@ parts/
 sdist/
 var/
 wheels/
+pip-wheel-metadata/
+share/python-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+MANIFEST
+
+# PyPI/Package build
+.pypirc
 
 # Virtual Environment
 venv/

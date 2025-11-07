@@ -13,7 +13,7 @@ import logging
 import time
 import av
 
-from vlm_service import VLMService
+from .vlm_service import VLMService
 
 # Enable swscaler warnings to track hardware acceleration status
 # TODO: Implement hardware-accelerated color space conversion on Jetson using NVMM/VPI

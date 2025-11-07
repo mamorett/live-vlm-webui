@@ -33,7 +33,7 @@ git clone https://github.com/nvidia-ai-iot/live-vlm-webui.git
 cd live-vlm-webui
 
 # 2. Run the auto-detection script
-./start_container.sh
+./scripts/start_container.sh
 ```
 
 That's it! The script will:
@@ -141,14 +141,14 @@ cd live-vlm-webui
 python3 -m venv .venv
 source .venv/bin/activate
 
-# 3. Install dependencies
-pip install -r requirements.txt
+# 3. Install the package in editable mode
+pip install -e .
 
 # 4. Generate SSL certificates
-./generate_cert.sh
+./scripts/generate_cert.sh
 
 # 5. Start the server
-./start_server.sh
+./scripts/start_server.sh
 ```
 
 **Access the WebUI:** Open **`https://localhost:8090`**
@@ -231,7 +231,7 @@ python -m vllm.entrypoints.openai.api_server \
 
 **Using the launcher script (recommended):**
 ```bash
-./start_docker_compose.sh ollama
+./scripts/start_docker_compose.sh ollama
 
 # Pull a vision model after startup
 docker exec ollama ollama pull llama3.2-vision:11b
@@ -263,7 +263,7 @@ Includes:
 # Get NGC API Key from https://org.ngc.nvidia.com/setup/api-key
 export NGC_API_KEY=<your-key>
 
-./start_docker_compose.sh nim
+./scripts/start_docker_compose.sh nim
 ```
 
 **Or manually with docker compose:**
@@ -331,23 +331,23 @@ Includes:
 
 ## 🗺️ Use Cases
 
-- 🎬 **Content Creation** - Live scene analysis for video production
 - 🔒 **Security** - Real-time monitoring and alert generation
-- ♿ **Accessibility** - Visual assistance for visually impaired users
-- 🎮 **Gaming** - AI game master or interactive experiences
-- 🏥 **Healthcare** - Activity monitoring, fall detection
-- 🏭 **Industrial** - Quality control, safety monitoring
-- 📚 **Education** - Interactive learning experiences
 - 🤖 **Robotics** - Visual feedback for robot control
+- 🏭 **Industrial** - Quality control, safety monitoring, automation
+- 🏥 **Healthcare** - Activity monitoring, fall detection
+- ♿ **Accessibility** - Visual assistance for visually impaired users
+- 📚 **Education** - Interactive learning experiences
+- 🎬 **Content Creation** - Live scene analysis for video production
+- 🎮 **Gaming** - AI game master or interactive experiences
 
 ---
 
-## 🛠️ Troubleshooting
+## 🚑 Troubleshooting
 
 ### Quick Fixes
 
 **Camera not accessible?**
-- Use HTTPS (not HTTP): `./start_server.sh` or `--ssl-cert cert.pem --ssl-key key.pem`
+- Use HTTPS (not HTTP): `./scripts/start_server.sh` or `--ssl-cert cert.pem --ssl-key key.pem`
 - Accept the self-signed certificate warning (Advanced → Proceed)
 
 **Can't connect to VLM?**
@@ -359,7 +359,7 @@ Includes:
 - Jetson: Add `--privileged -v /run/jtop.sock:/run/jtop.sock:ro`
 
 **Slow performance?**
-- Use smaller model (llava:7b instead of llava:34b)
+- Use smaller model (gemma3:4b instead of gemma3:11b)
 - Increase Frame Processing Interval (60+ frames)
 - Reduce Max Tokens (50-100 instead of 512)
 
@@ -372,11 +372,11 @@ For launching the WebUI alongside a VLM backend (Ollama or NVIDIA NIM) in a sing
 **Using the launcher script (recommended):**
 ```bash
 # Ollama (easy, no API keys)
-./start_docker_compose.sh ollama
+./scripts/start_docker_compose.sh ollama
 
 # NVIDIA NIM (advanced, requires NGC API key)
 export NGC_API_KEY=<your-key>
-./start_docker_compose.sh nim
+./scripts/start_docker_compose.sh nim
 ```
 
 **Manual docker compose:**
@@ -410,9 +410,9 @@ git clone https://github.com/nvidia-ai-iot/live-vlm-webui.git
 cd live-vlm-webui
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
-./generate_cert.sh
-./start_server.sh
+pip install -e .
+./scripts/generate_cert.sh
+./scripts/start_server.sh
 ```
 
 **📗 See:** Full instructions above in [Quick Start → Option 2: Local Installation](#option-2-local-installation-versatile-works-on-mac)
@@ -451,24 +451,55 @@ See [Contributing Guide](./CONTRIBUTING.md) for details.
 
 ```
 live-vlm-webui/
-├── server.py            # Main WebRTC server with WebSocket support
-├── video_processor.py   # Video frame processing and VLM integration
-├── gpu_monitor.py       # Cross-platform GPU/system monitoring
-├── index.html           # Frontend web UI
-├── requirements.txt     # Python dependencies
-├── start_server.sh      # Quick start script with SSL
-├── start_container.sh   # Auto-detection Docker launcher
-├── generate_cert.sh     # SSL certificate generation
-├── Dockerfile           # Docker image for x86_64 PC
-├── Dockerfile.jetson-orin  # Docker image for Jetson Orin
-├── Dockerfile.jetson-thor  # Docker image for Jetson Thor
-├── docker-compose.yml      # Unified stack (Ollama + NIM + future backends)
-├── docs/                # Detailed documentation
-│   ├── setup/           # Setup guides
-│   ├── usage/           # Usage guides
-│   ├── development/     # Developer guides
+├── src/
+│   └── live_vlm_webui/       # Main Python package
+│       ├── __init__.py       # Package initialization
+│       ├── server.py         # Main WebRTC server with WebSocket support
+│       ├── video_processor.py # Video frame processing and VLM integration
+│       ├── gpu_monitor.py    # Cross-platform GPU/system monitoring
+│       ├── vlm_service.py    # VLM API integration
+│       └── static/
+│           └── index.html    # Frontend web UI
+│
+├── scripts/                  # Bash scripts & utilities
+│   ├── start_server.sh      # Quick start script with SSL
+│   ├── stop_server.sh       # Stop the server
+│   ├── start_container.sh   # Auto-detection Docker launcher
+│   ├── stop_container.sh    # Stop Docker container
+│   ├── start_docker_compose.sh # Docker Compose launcher
+│   ├── generate_cert.sh     # SSL certificate generation
+│   ├── build_multiarch.sh   # Multi-arch Docker build
+│   └── build_multiarch_cuda.sh
+│
+├── docker/                   # Docker configuration
+│   ├── Dockerfile            # x86_64 PC / DGX Spark (multi-arch)
+│   ├── Dockerfile.jetson-orin # Jetson Orin
+│   ├── Dockerfile.jetson-thor # Jetson Thor
+│   ├── Dockerfile.jetson     # Generic Jetson
+│   ├── Dockerfile.mac        # macOS (testing)
+│   └── docker-compose.yml    # Unified stack (Ollama + NIM)
+│
+├── tests/                    # Unit tests
+│   └── __init__.py
+│
+├── prototypes/               # Experimental/prototype scripts (not production)
+│   ├── examples.sh
+│   ├── test_mac_docker.sh
+│   └── test_gpu_monitor_mac.py
+│
+├── docs/                     # Detailed documentation
+│   ├── setup/                # Setup guides
+│   ├── usage/                # Usage guides
+│   ├── development/          # Developer guides
 │   └── troubleshooting.md
-└── README.md           # This file
+│
+├── pyproject.toml            # Modern Python packaging (PEP 621)
+├── requirements.txt          # Python dependencies
+├── requirements-dev.txt      # Development dependencies
+├── MANIFEST.in               # Package data includes
+├── README.md                 # This file
+├── CONTRIBUTING.md           # Contribution guidelines
+└── LICENSE                   # Apache 2.0 license
 ```
 
 ---
