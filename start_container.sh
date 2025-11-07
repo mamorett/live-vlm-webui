@@ -31,7 +31,7 @@ RUNTIME_FLAG=""
 # Check if running on macOS
 if [ "$OS" = "Darwin" ]; then
     PLATFORM="mac"
-    IMAGE_TAG="mac"
+    IMAGE_TAG="latest-mac"
     GPU_FLAG=""  # No GPU support on Mac Docker
     echo -e "   Platform: ${GREEN}macOS (Apple Silicon)${NC}"
     echo ""
@@ -60,7 +60,7 @@ if [ "$OS" = "Darwin" ]; then
 
 elif [ "$ARCH" = "x86_64" ]; then
     PLATFORM="x86"
-    IMAGE_TAG="latest-x86"
+    IMAGE_TAG="latest"
     GPU_FLAG="--gpus all"
     echo -e "   Platform: ${GREEN}PC (x86_64)${NC}"
 
@@ -87,7 +87,7 @@ elif [ "$ARCH" = "aarch64" ]; then
         # Check if NVIDIA GPU is available
         if command -v nvidia-smi &> /dev/null && nvidia-smi &> /dev/null; then
             PLATFORM="arm64-sbsa"
-            IMAGE_TAG="latest-x86"  # Use same image as x86 (multi-arch CUDA base)
+            IMAGE_TAG="latest"  # Multi-arch image (works on both x86 and ARM64)
             GPU_FLAG="--gpus all"
 
             # Check if it's specifically DGX Spark
@@ -102,7 +102,7 @@ elif [ "$ARCH" = "aarch64" ]; then
             else
                 echo -e "   Platform: ${GREEN}ARM64 SBSA with NVIDIA GPU${NC} (ARM server)"
             fi
-            echo -e "   ${YELLOW}Note: Using standard CUDA container (same as x86)${NC}"
+            echo -e "   ${YELLOW}Note: Using multi-arch CUDA container${NC}"
         else
             echo -e "${RED}❌ ARM64 platform detected without NVIDIA GPU${NC}"
             echo -e "${RED}   Supported: x86 PC, DGX Spark, Jetson Thor/Orin${NC}"
