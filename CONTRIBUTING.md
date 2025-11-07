@@ -7,7 +7,7 @@ Thank you for your interest in contributing! This guide will help you get starte
 ### Reporting Bugs
 
 If you find a bug, please [open an issue](https://github.com/nvidia-ai-iot/live-vlm-webui/issues/new) with:
-- **Platform**: PC (x86_64), Jetson Orin, Jetson Thor, Mac, etc.
+- **Platform**: PC (x86_64), DGX Spark, Jetson Orin, Jetson Thor, Mac, etc.
 - **Setup**: Docker or manual installation
 - **Steps to reproduce**: Clear instructions
 - **Expected vs actual behavior**
@@ -119,20 +119,21 @@ def process_frame(frame: VideoFrame, model: str) -> Dict[str, Any]:
 We're particularly interested in contributions for:
 
 ### High Priority
-- 🔄 **Apple Silicon GPU monitoring** - Implement M1/M2/M3 support in `gpu_monitor.py`
-- 🔄 **AMD GPU monitoring** - Add AMD GPU support
+- ➕ **Model download UI** - Ability to initiate backend's model donwload from Web UI
+- 📏 **Jetson VRAM utilization** - Workaround for not being able to get GPU memory consumption via NVML
 - ⚡ **Hardware-accelerated video on Jetson** - Use NVENC/NVDEC instead of CPU swscaler
+- 🔄 **AMD GPU monitoring** - Add AMD GPU support
 
 ### Medium Priority
-- 📹 **Recording functionality** - Save analysis sessions
-- 🎥 **Multiple camera support** - Show multiple streams simultaneously
 - 🏆 **Benchmark mode** - Side-by-side model comparison
-- 📊 **Export results** - JSON/CSV export of analysis results
+- 👥 **Multi-session support** - Support multiple sessions, potentially enabling cloud hosting
+- 🎥 **Multiple frame support** - Option to send multiple frames to VLM for temporal understanding
+- 📜 **Log functionality** - Keep the past analysis results viewable
+- 🔄 **Apple Silicon GPU monitoring** - Find a workaround for supporting M1/M2/M3/M4 in `gpu_monitor.py`
 
 ### Low Priority (Nice to Have)
 - 🔊 **Audio output** - TTS for accessibility
-- 📱 **Mobile app** - React Native or Flutter client
-- 🌐 **Internationalization** - Multi-language support
+- 🌐 **Internationalization** - Multi-language scheme
 
 ---
 
@@ -193,6 +194,9 @@ docker exec live-vlm-webui jtop  # Jetson
 ---
 
 ## 🚢 Release Process
+
+> [!NOTE]
+> We have not started the formal versionoig yet
 
 ### Versioning
 

@@ -1,10 +1,25 @@
 # Live VLM WebUI
 
+[![GitHub stars](https://img.shields.io/github/stars/nvidia-ai-iot/live-vlm-webui?style=social)](https://github.com/nvidia-ai-iot/live-vlm-webui/stargazers)
+[![GitHub forks](https://img.shields.io/github/forks/nvidia-ai-iot/live-vlm-webui?style=social)](https://github.com/nvidia-ai-iot/live-vlm-webui/network/members)
+[![CI/CD](https://github.com/NVIDIA-AI-IOT/live-vlm-webui/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/NVIDIA-AI-IOT/live-vlm-webui/actions/workflows/docker-publish.yml)
+[![GitHub issues](https://img.shields.io/github/issues/nvidia-ai-iot/live-vlm-webui)](https://github.com/nvidia-ai-iot/live-vlm-webui/issues)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/nvidia-ai-iot/live-vlm-webui/blob/main/LICENSE)
+[![Docker Pulls](https://img.shields.io/docker/pulls/nvidia/live-vlm-webui?logo=docker)](https://github.com/nvidia-ai-iot/live-vlm-webui/pkgs/container/live-vlm-webui)
+
 **A universal web interface for real-time Vision Language Model interaction and benchmarking.**
 
 Stream your webcam to any VLM and get live AI-powered analysis - perfect for testing models, benchmarking performance, and exploring vision AI capabilities across multiple domains and hardware platforms.
 
 ![Live VLM WebUI Screenshot](./docs/images/chrome_app_running.png)
+
+> [!TIP]
+> **⭐ If you find this project useful, please consider giving it a star!** It helps others discover this tool and motivates us to keep improving it. Thank you for your support! 🙏
+
+**📢 Share this project:**
+[![X (Twitter)](https://img.shields.io/badge/Share%20on-X-000000?logo=x&logoColor=white)](https://twitter.com/intent/tweet?text=Check%20out%20Live%20VLM%20WebUI%20-%20A%20universal%20web%20interface%20for%20real-time%20Vision%20Language%20Model%20interaction!&url=https://github.com/nvidia-ai-iot/live-vlm-webui&hashtags=AI,VisionAI,NVIDIA,OpenSource)
+[![LinkedIn](https://img.shields.io/badge/Share%20on-LinkedIn-0077B5?logo=linkedin&logoColor=white)](https://www.linkedin.com/sharing/share-offsite/?url=https://github.com/nvidia-ai-iot/live-vlm-webui)
+[![Reddit](https://img.shields.io/badge/Share%20on-Reddit-FF4500?logo=reddit&logoColor=white)](https://reddit.com/submit?url=https://github.com/nvidia-ai-iot/live-vlm-webui&title=Live%20VLM%20WebUI%20-%20Real-time%20Vision%20AI%20Interaction)
 
 ---
 
@@ -61,7 +76,7 @@ Once the server is running, access the web interface at **`https://localhost:809
 
 **Left Sidebar Controls:**
 
-<img src="./docs/images/usage_left_pane.png" align="left" width="180px" style="margin-right: 50px; margin-bottom: 10px;">
+<img src="./docs/images/usage_left_pane.png" align="right" width="180px" style="margin-left: 50px; margin-bottom: 10px;">
 
 #### **🌐 VLM API Configuration**
   - Set **API Base URL**, API Key, and **Model**
@@ -81,32 +96,35 @@ Once the server is running, access the web interface at **`https://localhost:809
   - Write custom prompts
   - Adjust **Max Tokens** for response length (1-4096)
 
-<br clear="left">
+<br clear="right">
 
 <img src="./docs/images/usage_main_pane.png" align="right" width="240px" style="margin-left: 50px; margin-bottom: 10px;">
 
 **Main Content Area:**
 
-- **VLM Output Card** - Real-time analysis results:
-  - Model name and inference latency metrics
-  - Current prompt display (gray box with green accent)
+#### **🤖 VLM Output Info** - Real-time analysis results:
+  - Model name and inference latency metrics ⏱️
+  - Current prompt display (gray box)
   - Generated text output
-- **Video Feed** - Live webcam with 🔄 mirror toggle button
-- **System Stats Card** - Live monitoring:
-  - System info: hostname (CPU model) with GPU name
+
+#### **🖼️ Video Feed** - Live webcam
+  - mirror toggle button 🔄
+
+#### **📈 System Stats Card** - Live monitoring:
+  - System info: Hardware name with hostname with GPU info
   - GPU utilization and VRAM with progress bars
   - CPU and RAM stats
-  - Sparkline graphs (60-second history)
+  - Sparkline graphs
 
 <br clear="right">
 
 **Header:**
-- **🎥 Live VLM WebUI** - Logo and title
+
+![](./docs/images/usage_header.png)
+
 - **Connection Status** - WebSocket connectivity indicator
 - **⚙️ Settings** - Advanced configuration modal (WebRTC, latency thresholds, debugging)
 - **🌙/☀️ Theme Toggle** - Switch between Light/Dark modes
-
-![](./docs/images/usage_header.png)
 
 ---
 
@@ -136,8 +154,11 @@ pip install -r requirements.txt
 **Access the WebUI:** Open **`https://localhost:8090`**
 
 **Platforms supported:**
-- ✅ Linux (x86_64, ARM64) - fully tested
-- ✅ macOS (Intel, Apple Silicon) - fully tested
+- ✅ Linux (x86_64) - fully tested
+- ✅ DGX Spark - fully tested
+- ✅ Jetson Thor - fully tested
+- ✅ Jetson Orin - Tested on Jetson AGX Orin Developer Kit
+- ✅ macOS (Apple Silicon) - fully tested
 - ⚠️ Windows - WSL2 recommended, native Windows possible but requires additional setup (FFmpeg, build tools)
 
 ---
@@ -148,12 +169,14 @@ Choose the VLM backend that fits your needs:
 
 ### Quick Comparison
 
-| Backend | Setup Difficulty | Speed | Quality | GPU Required |
-|---------|-----------------|-------|---------|--------------|
-| **Ollama** | ⭐ Easy | 🟢 Fast | 🟢 Good | Yes (local) |
-| **vLLM** | ⭐⭐ Medium | 🟢🟢 Fastest | 🟢🟢 Excellent | Yes (local) |
-| **SGLang** | ⭐⭐ Medium | 🟢 Fast | 🟢🟢 Excellent | Yes (local) |
-| **NVIDIA API Catalog** | ⭐ Easy | 🟡 Medium | 🟢🟢🟢 Best | No |
+| Backend | Setup Difficulty | Model Coverage | Speed | GPU Required |
+|---------|------------------|----------------|-------|--------------|
+| **Ollama**     | 🟢 Easy   | 14+ vision models ([link](https://ollama.com/search?c=vision)) | 🟢 Fast | 🏠 Yes (local) |
+| **vLLM**       | 🔴 Varies (works best on PC) | Widest HF model support | 🟢🟢 Fastest | 🏠 Yes (local) |
+| **SGLang**     | 🔴 Varies (works best on PC) | Widest HF model support | 🟢🟢 Fastest | 🏠 Yes (local) |
+| **NVIDIA NIM** | 🟡 Medium | Limited VLM selection (improving) | 🟢🟢 Fastest | 🏠 Yes (local) |
+| **NVIDIA API Catalog** | 🟢 Easy | 12+ hosted VLMs     | 🟡 Depends | ☁️ No (cloud) |
+| **OpenAI API**         | 🟢 Easy | GPT-4o, GPT-4o-mini | 🟡 Depends | ☁️ No (cloud) |
 
 ### Option A: Ollama (Recommended for Beginners)
 
@@ -398,18 +421,29 @@ pip install -r requirements.txt
 
 ## 🤝 Contributing
 
-Contributions welcome! Areas for improvement:
-- 🔄 Apple Silicon GPU monitoring
-- 🔄 AMD GPU monitoring
-- 📹 Recording functionality
-- 🎥 Multiple simultaneous camera support
-- 🔊 Audio description output (TTS)
-- 📱 Mobile app support
-- 🏆 Benchmark mode with side-by-side comparison
-- 📊 Export analysis results (JSON, CSV)
+We ❤️ contributions from the community! This project is built with passion and we'd love your help making it even better.
+
+**How you can help:**
+- ⭐ **Star this repo** - It really helps us and takes just 1 second!
+- 🐛 **Report bugs** - Found an issue? [Let us know](https://github.com/nvidia-ai-iot/live-vlm-webui/issues)
+- 💡 **Suggest features** - Have an idea? [Create a feature request](https://github.com/nvidia-ai-iot/live-vlm-webui/issues/new)
+- 🔧 **Submit PRs** - Code contributions are always welcome!
+- 📢 **Share it** - Tell others about this project
+- 📝 **Improve docs** - Help us make the documentation better
+
+**Areas for improvement:**
+- 📏 **Jetson VRAM utilization** - Workaround for measuring GPU memory consumption
 - ⚡ **Hardware-accelerated video processing on Jetson** - Use NVENC/NVDEC
+- 🔄 AMD GPU monitoring
+- ➕ **Model download UI** - Ability to initiate backend's model donwload from Web UI
+- 📜 **Log functionality** - Keep the past analysis results viewable
+- 🏆 **Benchmark mode** - Side-by-side model comparison
+- 👥 **Multi-session support** - Support multiple sessions for hosting
 
 See [Contributing Guide](./CONTRIBUTING.md) for details.
+
+> [!IMPORTANT]
+> **⭐ Don't forget to star the repository if you found it helpful!** Your support means the world to us and helps demonstrate the value of this work to the community and our organization.
 
 ---
 
@@ -441,7 +475,12 @@ live-vlm-webui/
 
 ## 📄 License
 
-MIT License - Feel free to use and modify for your projects!
+This project is licensed under the **Apache License 2.0** - see the [LICENSE](LICENSE) file for details.
+
+```
+SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+SPDX-License-Identifier: Apache-2.0
+```
 
 ---
 
@@ -464,3 +503,13 @@ If you use this in your research or project, please cite:
   url = {https://github.com/nvidia-ai-iot/live-vlm-webui}
 }
 ```
+
+---
+
+## ⭐ Star History
+
+**Thank you to everyone who has starred this project!** Your support drives us to keep improving and innovating. 🚀
+
+[![Star History Chart](https://api.star-history.com/svg?repos=nvidia-ai-iot/live-vlm-webui&type=Date)](https://star-history.com/#nvidia-ai-iot/live-vlm-webui&Date)
+
+> **Haven't starred yet?** [Click here to give us a ⭐](https://github.com/nvidia-ai-iot/live-vlm-webui) — it takes just a second and helps us tremendously!
