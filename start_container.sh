@@ -89,7 +89,19 @@ elif [ "$ARCH" = "aarch64" ]; then
             PLATFORM="arm64-sbsa"
             IMAGE_TAG="latest-x86"  # Use same image as x86 (multi-arch CUDA base)
             GPU_FLAG="--gpus all"
-            echo -e "   Platform: ${GREEN}ARM64 SBSA with NVIDIA GPU${NC} (DGX Spark, ARM server)"
+
+            # Check if it's specifically DGX Spark
+            if [ -f /etc/dgx-release ]; then
+                DGX_NAME=$(grep -oP 'DGX_NAME="\K[^"]+' /etc/dgx-release 2>/dev/null || echo "DGX")
+                DGX_VERSION=$(grep -oP 'DGX_SWBUILD_VERSION="\K[^"]+' /etc/dgx-release 2>/dev/null || echo "")
+                if [ -n "$DGX_VERSION" ]; then
+                    echo -e "   Platform: ${GREEN}NVIDIA ${DGX_NAME}${NC} (Version ${DGX_VERSION})"
+                else
+                    echo -e "   Platform: ${GREEN}NVIDIA ${DGX_NAME}${NC}"
+                fi
+            else
+                echo -e "   Platform: ${GREEN}ARM64 SBSA with NVIDIA GPU${NC} (ARM server)"
+            fi
             echo -e "   ${YELLOW}Note: Using standard CUDA container (same as x86)${NC}"
         else
             echo -e "${RED}❌ ARM64 platform detected without NVIDIA GPU${NC}"
@@ -150,8 +162,42 @@ if [ "$PLATFORM" != "mac" ]; then
     if [[ $REPLY =~ ^[Yy]$ ]]; then
         echo -e "${BLUE}📥 Pulling ${IMAGE_NAME}...${NC}"
         docker pull ${IMAGE_NAME} || {
-            echo -e "${YELLOW}⚠️  Failed to pull from registry, will use local image${NC}"
+            echo -e "${YELLOW}⚠️  Failed to pull from registry, will try local image${NC}"
         }
+    fi
+    
+    # Check if image exists (registry or local)
+    if ! docker images --format '{{.Repository}}:{{.Tag}}' | grep -q "^${IMAGE_NAME}$"; then
+        # Try common local image names
+        LOCAL_IMAGE=""
+        if [ "$PLATFORM" = "arm64-sbsa" ]; then
+            # Check for DGX Spark specific tags
+            if docker images --format '{{.Repository}}:{{.Tag}}' | grep -q "^live-vlm-webui:dgx-spark$"; then
+                LOCAL_IMAGE="live-vlm-webui:dgx-spark"
+            elif docker images --format '{{.Repository}}:{{.Tag}}' | grep -q "^live-vlm-webui:arm64$"; then
+                LOCAL_IMAGE="live-vlm-webui:arm64"
+            fi
+        elif [ "$PLATFORM" = "x86" ]; then
+            if docker images --format '{{.Repository}}:{{.Tag}}' | grep -q "^live-vlm-webui:x86$"; then
+                LOCAL_IMAGE="live-vlm-webui:x86"
+            fi
+        fi
+        
+        if [ -n "$LOCAL_IMAGE" ]; then
+            echo -e "${GREEN}✅ Found local image: ${LOCAL_IMAGE}${NC}"
+            IMAGE_NAME="${LOCAL_IMAGE}"
+        else
+            echo -e "${RED}❌ Image '${IMAGE_NAME}' not found${NC}"
+            echo -e "${YELLOW}   Build it first with:${NC}"
+            if [ "$PLATFORM" = "arm64-sbsa" ]; then
+                echo -e "   ${GREEN}docker build -t live-vlm-webui:dgx-spark .${NC}"
+            else
+                echo -e "   ${GREEN}docker build -t live-vlm-webui:x86 .${NC}"
+            fi
+            exit 1
+        fi
+    else
+        echo -e "${GREEN}✅ Using image: ${IMAGE_NAME}${NC}"
     fi
 fi
 
