@@ -574,6 +574,44 @@ async def on_shutdown(app):
     logger.info("Cleanup complete")
 
 
+async def create_app(test_mode=False):
+    """
+    Create and configure the aiohttp web application.
+
+    Args:
+        test_mode: If True, skip GPU monitoring and use test configuration
+
+    Returns:
+        Configured web.Application instance
+    """
+    # Create web application
+    app = web.Application()
+    app.router.add_get("/", index)
+    app.router.add_get("/models", models)
+    app.router.add_get("/detect-services", detect_services)
+    app.router.add_get("/ws", websocket_handler)
+    app.router.add_post("/offer", offer)
+
+    # Serve static files (images, etc.)
+    if test_mode:
+        # In test mode, serve from src/live_vlm_webui/static/images
+        images_dir = os.path.join(os.path.dirname(__file__), "static", "images")
+    else:
+        # In production, images directory is at project root
+        images_dir = os.path.join(os.path.dirname(__file__), "..", "..", "images")
+
+    images_dir = os.path.abspath(images_dir)
+    if os.path.exists(images_dir):
+        app.router.add_static("/images", images_dir, name="images")
+        logger.info(f"Serving static files from: {images_dir}")
+
+    if not test_mode:
+        app.on_startup.append(on_startup)
+        app.on_shutdown.append(on_shutdown)
+
+    return app
+
+
 def main():
     """Main entry point"""
     import argparse
@@ -651,24 +689,8 @@ def main():
     # (This is a bit hacky but works for this demo)
     VideoProcessorTrack.process_every_n_frames = args.process_every
 
-    # Create web application
-    app = web.Application()
-    app.router.add_get("/", index)
-    app.router.add_get("/models", models)
-    app.router.add_get("/detect-services", detect_services)
-    app.router.add_get("/ws", websocket_handler)
-    app.router.add_post("/offer", offer)
-
-    # Serve static files (images, etc.)
-    # Images directory is at project root, two levels up from this file
-    images_dir = os.path.join(os.path.dirname(__file__), "..", "..", "images")
-    images_dir = os.path.abspath(images_dir)
-    if os.path.exists(images_dir):
-        app.router.add_static("/images", images_dir, name="images")
-        logger.info(f"Serving static files from: {images_dir}")
-
-    app.on_startup.append(on_startup)
-    app.on_shutdown.append(on_shutdown)
+    # Create web application using create_app
+    app = asyncio.run(create_app(test_mode=False))
 
     # Setup SSL if certificates provided
     ssl_context = None

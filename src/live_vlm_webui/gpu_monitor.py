@@ -108,7 +108,9 @@ class GPUMonitor(ABC):
     def get_cpu_ram_stats(self) -> Dict:
         """Get CPU and RAM stats (common across all platforms)"""
         try:
-            cpu_percent = psutil.cpu_percent(interval=0.1)
+            # Use interval=None for non-blocking call
+            # First call returns 0.0, subsequent calls return percentage since last call
+            cpu_percent = psutil.cpu_percent(interval=None)
             memory = psutil.virtual_memory()
             hostname = socket.gethostname()
             cpu_model = get_cpu_model()
