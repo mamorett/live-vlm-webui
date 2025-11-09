@@ -3,7 +3,6 @@
 import pytest
 from aiohttp import web
 from aiohttp.test_utils import AioHTTPTestCase
-from unittest.mock import patch, AsyncMock, Mock
 
 
 class TestServerIntegration(AioHTTPTestCase):

@@ -3,7 +3,7 @@
 import time
 import functools
 import statistics
-from typing import Callable, Any, Dict, List
+from typing import Callable, Dict, List
 from contextlib import contextmanager
 
 

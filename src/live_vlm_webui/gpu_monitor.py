@@ -3,7 +3,6 @@ GPU Monitoring Module
 Supports multiple platforms: NVIDIA (NVML), Jetson Thor (jtop), Jetson Orin (jtop), Apple Silicon, AMD
 """
 
-import asyncio
 import logging
 import os
 import platform
@@ -35,7 +34,8 @@ def get_cpu_model() -> str:
                     for line in f:
                         if line.startswith("model name"):
                             return line.split(":")[1].strip()
-            except:
+            except Exception:
+
                 pass
 
         elif system == "Darwin":  # macOS
@@ -49,7 +49,8 @@ def get_cpu_model() -> str:
                 )
                 if result.returncode == 0 and result.stdout.strip():
                     return result.stdout.strip()
-            except:
+            except Exception:
+
                 pass
 
         elif system == "Windows":
@@ -62,7 +63,8 @@ def get_cpu_model() -> str:
                     lines = result.stdout.strip().split("\n")
                     if len(lines) > 1:
                         return lines[1].strip()
-            except:
+            except Exception:
+
                 pass
 
         # Fallback to platform.processor()
@@ -239,14 +241,16 @@ class NVMLMonitor(GPUMonitor):
             # Get temperature
             try:
                 temp = pynvml.nvmlDeviceGetTemperature(self.handle, pynvml.NVML_TEMPERATURE_GPU)
-            except:
+            except Exception:
+
                 temp = None
 
             # Get power usage
             try:
                 power_mw = pynvml.nvmlDeviceGetPowerUsage(self.handle)
                 power_w = power_mw / 1000.0
-            except:
+            except Exception:
+
                 power_w = None
 
             # Get CPU and RAM stats
@@ -276,7 +280,7 @@ class NVMLMonitor(GPUMonitor):
             # Only log error once, or every 60 seconds (60 calls at 1Hz)
             if not self.error_logged:
                 logger.error(f"Error getting NVML stats: {e}")
-                logger.warning(f"GPU monitoring disabled - falling back to CPU/RAM only")
+                logger.warning("GPU monitoring disabled - falling back to CPU/RAM only")
                 self.error_logged = True
                 self.available = False  # Don't try again
             elif self.consecutive_errors % 60 == 0:
@@ -342,7 +346,7 @@ class JetsonThorMonitor(GPUMonitor):
             self.jtop_instance.start()
             self.use_jtop = True
             self.available = True
-            logger.info(f"Jetson Thor monitoring initialized - using jtop (jetson_stats)")
+            logger.info("Jetson Thor monitoring initialized - using jtop (jetson_stats)")
         except ImportError:
             logger.warning(
                 "jtop (jetson_stats) not installed - install with: sudo pip3 install jetson-stats"
@@ -375,10 +379,10 @@ class JetsonThorMonitor(GPUMonitor):
                     f.read()
                 self.available = True
                 logger.info(
-                    f"Jetson Thor monitoring initialized - using nvhost_podgov (limited stats)"
+                    "Jetson Thor monitoring initialized - using nvhost_podgov (limited stats)"
                 )
                 logger.info(
-                    f"💡 For full stats (GPU, VRAM, temp), install: sudo pip3 install jetson-stats"
+                    "💡 For full stats (GPU, VRAM, temp), install: sudo pip3 install jetson-stats"
                 )
             except (FileNotFoundError, PermissionError) as e:
                 logger.warning(f"Jetson Thor nvhost_podgov not accessible: {e}")
@@ -523,7 +527,8 @@ class JetsonThorMonitor(GPUMonitor):
 
                 # Use the maximum of GPC and NVD as overall GPU utilization
                 gpu_percent = max(gpu_percent, nvd_percent)
-            except:
+            except Exception:
+
                 pass  # NVD not critical, use GPC only
 
             stats = {
@@ -666,7 +671,6 @@ class AppleSiliconMonitor(GPUMonitor):
                 logger.warning(f"Failed to detect Apple Silicon: {e}")
 
             # Get product name (MacBook Pro 16", etc.)
-            model_id = ""
             try:
                 result = subprocess.run(
                     ["system_profiler", "SPHardwareDataType"],
@@ -680,7 +684,7 @@ class AppleSiliconMonitor(GPUMonitor):
                             # Extract "MacBook Pro" etc.
                             self.product_name = line.split(":")[1].strip()
                         elif "Model Identifier:" in line:
-                            model_id = line.split(":")[1].strip()
+                            line.split(":")[1].strip()
 
                     # Try to get screen size from display info
                     if self.product_name and "MacBook" in self.product_name:
@@ -740,7 +744,8 @@ class AppleSiliconMonitor(GPUMonitor):
                                 cores_str = line.split(":")[1].strip()
                                 self.gpu_cores = int(cores_str)
                                 break
-                            except:
+                            except Exception:
+
                                 pass
             except Exception as e:
                 logger.debug(f"Could not get GPU core count: {e}")
@@ -751,11 +756,12 @@ class AppleSiliconMonitor(GPUMonitor):
                 if result.returncode == 0:
                     self.use_powermetrics = True
                     logger.info("powermetrics found - but requires sudo for GPU stats")
-            except:
+            except Exception:
+
                 pass
 
         if self.available:
-            logger.info(f"Apple Silicon monitoring initialized")
+            logger.info("Apple Silicon monitoring initialized")
             if self.product_name:
                 logger.info(f"Product: {self.product_name}")
             logger.info(
@@ -763,9 +769,9 @@ class AppleSiliconMonitor(GPUMonitor):
                 if self.gpu_cores > 0
                 else f"Chip: {self.gpu_name}"
             )
-            logger.info(f"💡 Ollama uses Metal (GPU) for inference, not Neural Engine")
-            logger.info(f"💡 For detailed monitoring: brew install asitop && sudo asitop")
-            logger.info(f"💡 Or use Activity Monitor > Window > GPU History")
+            logger.info("💡 Ollama uses Metal (GPU) for inference, not Neural Engine")
+            logger.info("💡 For detailed monitoring: brew install asitop && sudo asitop")
+            logger.info("💡 Or use Activity Monitor > Window > GPU History")
 
     def get_cpu_ram_stats(self) -> Dict:
         """Get CPU and RAM stats, with custom hostname for Docker"""
@@ -809,7 +815,8 @@ class AppleSiliconMonitor(GPUMonitor):
                             # Extract percentage
                             try:
                                 gpu_percent = float(line.split(":")[1].strip().rstrip("%"))
-                            except:
+                            except Exception:
+
                                 pass
             except subprocess.TimeoutExpired:
                 if not self.powermetrics_warned:
@@ -869,7 +876,7 @@ class JetsonOrinMonitor(GPUMonitor):
             self.jtop_instance.start()
             self.use_jtop = True
             self.available = True
-            logger.info(f"Jetson Orin monitoring initialized - using jtop (jetson_stats)")
+            logger.info("Jetson Orin monitoring initialized - using jtop (jetson_stats)")
         except ImportError:
             logger.warning(
                 "jtop (jetson_stats) not installed - install with: sudo pip3 install jetson-stats"
@@ -1031,7 +1038,8 @@ def create_monitor(platform: Optional[str] = None) -> GPUMonitor:
             if os.path.exists(thor_gpc_path):
                 logger.info("Auto-detected Jetson Thor (nvhost_podgov paths found)")
                 return JetsonThorMonitor()
-        except:
+        except Exception:
+
             pass
 
     # Try NVML (works for Desktop, DGX, some Jetsons)
@@ -1057,7 +1065,8 @@ def create_monitor(platform: Optional[str] = None) -> GPUMonitor:
 
             logger.info("Auto-detected NVIDIA GPU (NVML available)")
             return NVMLMonitor()
-        except:
+        except Exception:
+
             pass
 
     # Fallback to NVML (will show unavailable)

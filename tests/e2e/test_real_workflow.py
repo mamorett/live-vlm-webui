@@ -103,7 +103,7 @@ def convert_to_y4m(source_video_path):
         # Warn if file is suspiciously large (might be old full 9-minute version)
         if size_mb > 2000:  # ~950 MB for 30s, so >2GB indicates full video
             print(f"   ⚠️  Warning: File is very large ({size_mb:.0f} MB)")
-            print(f"   ⚠️  This might be the full 9-minute video. Consider regenerating:")
+            print("   ⚠️  This might be the full 9-minute video. Consider regenerating:")
             print(f"   ⚠️  rm {y4m_path} && pytest ...")
         return y4m_path
 
@@ -112,7 +112,7 @@ def convert_to_y4m(source_video_path):
         print(f"   ⚠️  Source video not found: {source_video_path}")
         return None
 
-    print(f"   🎬 Converting first 30 seconds to Y4M format (takes ~20-30 seconds)...")
+    print("   🎬 Converting first 30 seconds to Y4M format (takes ~20-30 seconds)...")
     try:
         # Convert first 30 seconds only (video loops during test)
         result = subprocess.run(
@@ -233,7 +233,6 @@ def check_requirements():
     """Check that requirements are met before running real workflow tests."""
     import subprocess
     import ssl
-    import os
 
     # Check if server is running (try HTTPS first, then HTTP)
     server_url = None
@@ -352,11 +351,12 @@ def test_full_video_analysis_workflow(page, check_requirements):
                         opt_text = opt.text_content()
                         if "gemma3:4b" in opt_text:
                             model_select.select_option(index=i)
-                            print(f"   ✅ Pre-selected fastest model: gemma3:4b")
+                            print("   ✅ Pre-selected fastest model: gemma3:4b")
                             time.sleep(1)
                             break
                     break
-            except:
+            except Exception:
+
                 continue
     except Exception as e:
         print(f"   ⚠️  Could not pre-select model: {e}")
@@ -382,7 +382,8 @@ def test_full_video_analysis_workflow(page, check_requirements):
                     print(f"   ✅ Clicked '{button_text}' button")
                     clicked = True
                     break
-            except:
+            except Exception:
+
                 continue
 
         if not clicked:
@@ -552,9 +553,10 @@ def test_full_video_analysis_workflow(page, check_requirements):
         try:
             if page.locator(selector).first.is_visible(timeout=1000):
                 gpu_stats_visible = True
-                print(f"   ✅ WebSocket connected (GPU stats visible)")
+                print("   ✅ WebSocket connected (GPU stats visible)")
                 break
-        except:
+        except Exception:
+
             continue
 
     if not gpu_stats_visible:
@@ -575,8 +577,8 @@ def test_full_video_analysis_workflow(page, check_requirements):
             theme_button.click()
             print("   ✅ Toggled to light mode")
             time.sleep(3)  # Let theme transition complete and recording capture it
-    except Exception as e:
-        print(f"   ⚠️  Could not toggle theme")
+    except Exception:
+        print("   ⚠️  Could not toggle theme")
 
     # Action 2: Open settings modal and change settings
     print("   ⚙️  Opening Settings Modal and changing settings...")
@@ -637,10 +639,11 @@ def test_full_video_analysis_workflow(page, check_requirements):
                                     inp.fill("0.1")
                                     print("   ✅ Set WebRTC Max Video Latency to 0.1")
                                     break
-                            except:
+                            except Exception:
+
                                 continue
-                    except Exception as e:
-                        print(f"   ⚠️  Could not set WebRTC latency")
+                    except Exception:
+                        print("   ⚠️  Could not set WebRTC latency")
 
                     time.sleep(1)
 
@@ -658,10 +661,11 @@ def test_full_video_analysis_workflow(page, check_requirements):
                                     inp.fill("0.1")
                                     print("   ✅ Set Graph Update Interval to 0.1")
                                     break
-                            except:
+                            except Exception:
+
                                 continue
-                    except Exception as e:
-                        print(f"   ⚠️  Could not set Graph Update Interval")
+                    except Exception:
+                        print("   ⚠️  Could not set Graph Update Interval")
 
                     time.sleep(2)  # Show the changed settings
 
@@ -680,14 +684,16 @@ def test_full_video_analysis_workflow(page, check_requirements):
                                 print("   ✅ Closed settings modal")
                                 time.sleep(2)
                                 break
-                        except:
+                        except Exception:
+
                             continue
                     break
-            except:
+            except Exception:
+
                 continue
 
         if not found_settings:
-            print(f"   ⚠️  No settings button found with any selector")
+            print("   ⚠️  No settings button found with any selector")
     except Exception as e:
         print(f"   ⚠️  Could not interact with settings: {e}")
 
@@ -704,9 +710,11 @@ def test_full_video_analysis_workflow(page, check_requirements):
                     options = sel.locator("option").all()
                     option_texts = [opt.text_content() for opt in options[:5]]
                     print(f"   ℹ️  Select {idx}: {len(options)} options, first few: {option_texts}")
-                except:
+                except Exception:
+
                     pass
-    except:
+    except Exception:
+
         pass
 
     try:
@@ -761,16 +769,16 @@ def test_full_video_analysis_workflow(page, check_requirements):
                                 break
                         new_index = (current_index + 1) % len(options)
                         model_select.select_option(index=new_index)
-                        print(f"   ✅ Changed VLM model to next option")
+                        print("   ✅ Changed VLM model to next option")
                         time.sleep(3)
 
                     found_model = True
                     break
-            except Exception as e:
+            except Exception:
                 continue
 
         if not found_model:
-            print(f"   ⚠️  No model selector found or only one option available")
+            print("   ⚠️  No model selector found or only one option available")
     except Exception as e:
         print(f"   ⚠️  Could not change model: {e}")
 
@@ -800,9 +808,11 @@ def test_full_video_analysis_workflow(page, check_requirements):
                                     gpu_pct = float(match.group(1))
                                     print(f"   GPU: {gpu_pct:.1f}%")
                                 break
-                    except:
+                    except Exception:
+
                         continue
-            except:
+            except Exception:
+
                 pass
 
         # Try to extract the actual VLM analysis text from the page
@@ -859,20 +869,20 @@ def test_full_video_analysis_workflow(page, check_requirements):
                     # Show preview (first 100 chars)
                     preview = page_text[:100] + "..." if len(page_text) > 100 else page_text
                     print(f'   🔄 Analysis {len(analysis_texts)} at {i}s: "{preview}"')
-        except Exception as e:
+        except Exception:
             pass  # Silently continue if extraction fails
 
-    print(f"\n   📈 Summary:")
-    print(f"      - Total runtime: ~45 seconds")
-    print(f"      - Started with: gemma3:4b (fast model)")
+    print("\n   📈 Summary:")
+    print("      - Total runtime: ~45 seconds")
+    print("      - Started with: gemma3:4b (fast model)")
     print(
-        f"      - Timeline: Scroll(10s/12s) → Theme(15s) → Settings(18s) → Upgrade to llama3.2-vision:11b(25s)"
+        "      - Timeline: Scroll(10s/12s) → Theme(15s) → Settings(18s) → Upgrade to llama3.2-vision:11b(25s)"
     )
-    print(f"      - GPU stats monitoring throughout")
+    print("      - GPU stats monitoring throughout")
     print(f"      - VLM analysis updates detected: {len(analyses)}")
 
     if analysis_texts:
-        print(f"\n   📝 VLM Analysis Texts:")
+        print("\n   📝 VLM Analysis Texts:")
         for idx, text in enumerate(analysis_texts, 1):
             # Truncate if too long
             display_text = text[:200] + "..." if len(text) > 200 else text

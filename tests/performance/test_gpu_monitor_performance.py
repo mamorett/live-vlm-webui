@@ -2,7 +2,7 @@
 
 import pytest
 import time
-from tests.utils.performance import PerformanceMetrics, PerformanceConstraints
+from tests.utils.performance import PerformanceMetrics
 
 
 @pytest.mark.performance
@@ -16,8 +16,8 @@ class TestGPUMonitorPerformance:
         monitor = create_monitor()
         metrics = PerformanceMetrics()
 
-        print(f"\n⚡ Testing GPU stats retrieval performance")
-        print(f"   Target: < 5ms (NVML is fast, sub-millisecond)")
+        print("\n⚡ Testing GPU stats retrieval performance")
+        print("   Target: < 5ms (NVML is fast, sub-millisecond)")
         print("")
 
         # Run 100 iterations to get good statistics
@@ -25,7 +25,7 @@ class TestGPUMonitorPerformance:
 
         for i in range(num_iterations):
             start = time.perf_counter()
-            stats = monitor.get_stats()
+            monitor.get_stats()
             duration_ms = (time.perf_counter() - start) * 1000
             metrics.record("get_stats", duration_ms)
 
@@ -56,10 +56,10 @@ class TestGPUMonitorPerformance:
         """Test that monitor creation is reasonably fast."""
         from live_vlm_webui.gpu_monitor import create_monitor
 
-        print(f"\n🏗️  Testing monitor creation time")
+        print("\n🏗️  Testing monitor creation time")
 
         start = time.perf_counter()
-        monitor = create_monitor()
+        create_monitor()
         creation_time_ms = (time.perf_counter() - start) * 1000
 
         print(f"   Creation time: {creation_time_ms:.2f} ms")
@@ -86,7 +86,7 @@ class TestGPUMonitorPerformance:
         duration_seconds = 5
         poll_interval = 0.1  # 100ms between polls (10Hz)
 
-        print(f"\n⏱️  Sustained monitoring test")
+        print("\n⏱️  Sustained monitoring test")
         print(f"   Duration: {duration_seconds}s")
         print(f"   Poll rate: {1/poll_interval:.0f} Hz")
         print("")
@@ -96,7 +96,7 @@ class TestGPUMonitorPerformance:
 
         while (time.perf_counter() - start_time) < duration_seconds:
             poll_start = time.perf_counter()
-            stats = monitor.get_stats()
+            monitor.get_stats()
             poll_duration = (time.perf_counter() - poll_start) * 1000
 
             metrics.record("poll", poll_duration)
@@ -110,7 +110,7 @@ class TestGPUMonitorPerformance:
 
         result = metrics.get_stats("poll")
 
-        print(f"📊 Results:")
+        print("📊 Results:")
         print(f"   Total polls: {poll_count}")
         print(f"   Actual rate: {actual_rate:.1f} Hz")
         print(f"   Mean poll time: {result['mean']:.3f} ms")
@@ -118,9 +118,9 @@ class TestGPUMonitorPerformance:
         print("")
 
         if result["p95"] < 5.0:
-            print(f"   ✅ Sustained performance excellent")
+            print("   ✅ Sustained performance excellent")
         else:
-            print(f"   ⚠️  Warning: Performance degraded over time")
+            print("   ⚠️  Warning: Performance degraded over time")
 
         # Ensure performance stays fast over sustained operation
         assert (

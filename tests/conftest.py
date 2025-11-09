@@ -4,7 +4,6 @@ import asyncio
 import pytest
 from pathlib import Path
 from unittest.mock import Mock, AsyncMock
-from typing import AsyncGenerator
 
 from tests.utils.performance import PerformanceMetrics
 
@@ -70,7 +69,6 @@ def sample_video_path():
 @pytest.fixture
 async def test_server():
     """Create a test server instance."""
-    from aiohttp import web
     from live_vlm_webui.server import create_app
 
     app = await create_app(test_mode=True)

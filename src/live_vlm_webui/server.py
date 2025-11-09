@@ -15,7 +15,6 @@ from aiohttp import web
 from aiortc import (
     RTCPeerConnection,
     RTCSessionDescription,
-    MediaStreamTrack,
     RTCConfiguration,
     RTCIceServer,
 )
@@ -487,7 +486,7 @@ async def offer(request):
 
             # Add processed track back to connection
             pc.addTrack(processor_track)
-            logger.info(f"Added processed video track back to peer connection")
+            logger.info("Added processed video track back to peer connection")
 
         @track.on("ended")
         async def on_ended():
@@ -674,7 +673,7 @@ def main():
 
     # Log initialization with better formatting
     service_name = "Local" if "localhost" in api_base or "127.0.0.1" in api_base else "Cloud"
-    logger.info(f"Initialized VLM service:")
+    logger.info("Initialized VLM service:")
     logger.info(f"  Model: {model}")
     logger.info(f"  API: {api_base} ({service_name})")
     logger.info(f"  Prompt: {args.prompt}")
@@ -719,7 +718,8 @@ def main():
                 # Filter out loopback and docker bridges (172.17.x.x)
                 if not ip.startswith("127.") and not ip.startswith("172.17."):
                     logger.info(f"  Network: {protocol}://{ip}:{args.port}")
-    except:
+    except Exception:
+
         # Fallback to socket method
         try:
             s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -728,7 +728,8 @@ def main():
             s.close()
             if ip and ip != "127.0.0.1":
                 logger.info(f"  Network: {protocol}://{ip}:{args.port}")
-        except:
+        except Exception:
+
             pass
 
     logger.info("=" * 70)

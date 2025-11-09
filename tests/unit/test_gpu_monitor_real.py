@@ -1,8 +1,5 @@
 """Real unit tests for GPU monitor - matches actual implementation."""
 
-import pytest
-from unittest.mock import Mock, patch, MagicMock
-
 
 class TestGPUMonitorFactory:
     """Test the GPU monitor factory function."""
@@ -26,7 +23,7 @@ class TestGPUMonitorFactory:
 
         assert monitor is not None
         assert isinstance(monitor, AppleSiliconMonitor)
-        print(f"✅ Created AppleSiliconMonitor")
+        print("✅ Created AppleSiliconMonitor")
 
     def test_get_stats_returns_dict(self):
         """Test that get_stats returns a dictionary."""

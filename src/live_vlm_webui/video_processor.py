@@ -7,7 +7,6 @@ import asyncio
 import cv2
 import numpy as np
 from PIL import Image
-from av import VideoFrame
 from aiortc import VideoStreamTrack
 from typing import Optional
 import logging
