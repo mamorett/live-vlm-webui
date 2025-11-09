@@ -49,8 +49,8 @@ pytestmark = [
     pytest.mark.slow,
     pytest.mark.skipif(
         os.getenv("CI") == "true",
-        reason="Real workflow tests require GPU, Ollama, and video device"
-    )
+        reason="Real workflow tests require GPU, Ollama, and video device",
+    ),
 ]
 
 
@@ -68,7 +68,9 @@ def download_test_video():
     print(f"   This will download ~151 MB to {TEST_VIDEO_PATH}...")
     try:
         urllib.request.urlretrieve(TEST_VIDEO_URL, TEST_VIDEO_PATH)
-        print(f"   ✅ Downloaded: {TEST_VIDEO_PATH} ({TEST_VIDEO_PATH.stat().st_size / 1024 / 1024:.1f} MB)")
+        print(
+            f"   ✅ Downloaded: {TEST_VIDEO_PATH} ({TEST_VIDEO_PATH.stat().st_size / 1024 / 1024:.1f} MB)"
+        )
         return TEST_VIDEO_PATH
     except Exception as e:
         print(f"   ⚠️  Could not download test video: {e}")
@@ -116,14 +118,17 @@ def convert_to_y4m(source_video_path):
         result = subprocess.run(
             [
                 "ffmpeg",
-                "-i", str(source_video_path),
-                "-t", "30",  # First 30 seconds (loops during 45-60s test)
-                "-pix_fmt", "yuv420p",
+                "-i",
+                str(source_video_path),
+                "-t",
+                "30",  # First 30 seconds (loops during 45-60s test)
+                "-pix_fmt",
+                "yuv420p",
                 "-y",  # Overwrite if exists
-                str(y4m_path)
+                str(y4m_path),
             ],
             capture_output=True,
-            timeout=120  # 2 minute timeout
+            timeout=120,  # 2 minute timeout
         )
 
         if result.returncode == 0 and y4m_path.exists():
@@ -131,7 +136,7 @@ def convert_to_y4m(source_video_path):
             print(f"   ✅ Converted to Y4M: {y4m_path} ({size_mb:.0f} MB, 30 seconds)")
             return y4m_path
         else:
-            error_msg = result.stderr.decode('utf-8', errors='ignore')[:300]
+            error_msg = result.stderr.decode("utf-8", errors="ignore")[:300]
             print(f"   ⚠️  FFmpeg conversion failed: {error_msg}")
             return None
     except FileNotFoundError:
@@ -173,7 +178,10 @@ def browser_context_args(browser_context_args):
     return {
         **browser_context_args,
         "ignore_https_errors": True,  # Accept self-signed certificates
-        "viewport": {"width": 960, "height": 1200},  # Narrower to show main content, taller for better view
+        "viewport": {
+            "width": 960,
+            "height": 1200,
+        },  # Narrower to show main content, taller for better view
         "record_video_dir": "test-results/videos/",  # Record video of tests
         "record_video_size": {"width": 960, "height": 1200},  # Match viewport for recording
         # Grant camera and microphone permissions automatically
@@ -249,9 +257,7 @@ def check_requirements():
     # Check if Ollama is available
     try:
         result = subprocess.run(
-            ["curl", "-s", "http://localhost:11434/api/tags"],
-            capture_output=True,
-            timeout=2
+            ["curl", "-s", "http://localhost:11434/api/tags"], capture_output=True, timeout=2
         )
         if result.returncode != 0:
             pytest.skip("Ollama not running on localhost:11434 - start with: ollama serve")
@@ -271,7 +277,7 @@ def check_requirements():
                 ["ollama", "pull", model],
                 capture_output=True,
                 timeout=300,  # 5 minute timeout for pulling
-                text=True
+                text=True,
             )
             if result.returncode == 0:
                 print(f"   ✅ {model} ready")
@@ -289,25 +295,27 @@ def check_requirements():
 
 def test_full_video_analysis_workflow(page, check_requirements):
     """
-    Test complete workflow: Video input → Processing → VLM inference → Display results.
+        Test complete workflow: Video input → Processing → VLM inference → Display results.
 
-    This test creates a ~45 second interactive video showing:
-    1. Page loads
-    2. Pre-select fastest model (gemma3:4b)
-    3. Camera permission granted
-    4. Video stream starts with gemma3:4b inference
-    5. At ~10s: Quick scroll down to show GPU stats
-    6. At ~12s: Quick scroll back up to video view
-    7. At ~15s: Switch to light mode theme
-    8. At ~18s: Open settings modal and change:
-       - Enable Colorful UI Accents
-       - Set WebRTC Max Video Latency to 0.1
-       - Set Graph Update Interval to 0.1
-1
+        This test creates a ~45 second interactive video showing:
+        1. Page loads
+        2. Pre-select fastest model (gemma3:4b)
+        3. Camera permission granted
+        4. Video stream starts with gemma3:4b inference
+        5. At ~10s: Quick scroll down to show GPU stats
+        6. At ~12s: Quick scroll back up to video view
+        7. At ~15s: Switch to light mode theme
+        8. At ~18s: Open settings modal and change:
+           - Enable Colorful UI Accents
+           - Set WebRTC Max Video Latency to 0.1
+           - Set Graph Update Interval to 0.1
+    1
     """
     print("\n🎬 Starting full video analysis workflow test...")
     print("   This test will take ~45 seconds and create a video recording")
-    print("   Video timeline: gemma3:4b → Camera → Scroll(10s/12s) → Theme(15s) → Settings(18s) → llama(25s) → Analysis")
+    print(
+        "   Video timeline: gemma3:4b → Camera → Scroll(10s/12s) → Theme(15s) → Settings(18s) → llama(25s) → Analysis"
+    )
 
     # Grant camera and microphone permissions to the localhost origin
     page.context.grant_permissions(["camera", "microphone"], origin="https://localhost:8090")
@@ -334,7 +342,7 @@ def test_full_video_analysis_workflow(page, check_requirements):
 
                 # Find the model selector (has model names)
                 is_model_select = any(
-                    'llama' in txt.lower() or 'gemma' in txt.lower() or 'vision' in txt.lower()
+                    "llama" in txt.lower() or "gemma" in txt.lower() or "vision" in txt.lower()
                     for txt in option_texts
                 )
 
@@ -342,7 +350,7 @@ def test_full_video_analysis_workflow(page, check_requirements):
                     # Find and select gemma3:4b
                     for i, opt in enumerate(options):
                         opt_text = opt.text_content()
-                        if 'gemma3:4b' in opt_text:
+                        if "gemma3:4b" in opt_text:
                             model_select.select_option(index=i)
                             print(f"   ✅ Pre-selected fastest model: gemma3:4b")
                             time.sleep(1)
@@ -362,7 +370,7 @@ def test_full_video_analysis_workflow(page, check_requirements):
             "Open Camera and Start VLM Analysis",
             "Open Camera",
             "Start",
-            "Start Analysis"
+            "Start Analysis",
         ]
 
         clicked = False
@@ -394,7 +402,8 @@ def test_full_video_analysis_workflow(page, check_requirements):
     time.sleep(5)  # Give more time for WebRTC to start and page to expand
 
     # Find and check ALL scrollable elements on the page
-    scrollable_elements = page.evaluate("""
+    scrollable_elements = page.evaluate(
+        """
         () => {
             const allElements = document.querySelectorAll('*');
             const scrollable = [];
@@ -418,14 +427,18 @@ def test_full_video_analysis_workflow(page, check_requirements):
 
             return scrollable;
         }
-    """)
+    """
+    )
 
     print(f"   🔍 Found {len(scrollable_elements)} scrollable elements:")
     for elem in scrollable_elements[:5]:  # Show first 5
-        print(f"      - <{elem['tag']}> id='{elem['id']}' class='{elem['class']}' scrollable={elem['scrollable']}px")
+        print(
+            f"      - <{elem['tag']}> id='{elem['id']}' class='{elem['class']}' scrollable={elem['scrollable']}px"
+        )
 
     # Now try to find the best scroll container
-    scroll_container = page.evaluate("""
+    scroll_container = page.evaluate(
+        """
         () => {
             // Find ALL elements with overflow scroll/auto
             const allElements = document.querySelectorAll('*');
@@ -469,13 +482,18 @@ def test_full_video_analysis_workflow(page, check_requirements):
                 canScroll: document.body.scrollHeight > document.documentElement.clientHeight
             };
         }
-    """)
+    """
+    )
 
     print(f"   ℹ️  Scroll container: {scroll_container['selector']}")
-    print(f"   ℹ️  Content: scrollHeight={scroll_container['scrollHeight']}px, viewport={scroll_container['clientHeight']}px")
-    print(f"   ℹ️  Scrollable content: {scroll_container['scrollHeight'] - scroll_container['clientHeight']}px")
+    print(
+        f"   ℹ️  Content: scrollHeight={scroll_container['scrollHeight']}px, viewport={scroll_container['clientHeight']}px"
+    )
+    print(
+        f"   ℹ️  Scrollable content: {scroll_container['scrollHeight'] - scroll_container['clientHeight']}px"
+    )
 
-    if not scroll_container['canScroll']:
+    if not scroll_container["canScroll"]:
         print("   ⚠️  Content fits in viewport - no scrolling needed")
     else:
         print("   📜 Quick scroll down to show GPU stats cards (at ~10s)...")
@@ -485,8 +503,10 @@ def test_full_video_analysis_workflow(page, check_requirements):
             page.mouse.wheel(0, 400)  # Scroll down 400 pixels
             time.sleep(0.25)  # Quick pause
 
-        if scroll_container['found']:
-            final_position = page.evaluate(f"document.querySelector('{scroll_container['selector']}').scrollTop")
+        if scroll_container["found"]:
+            final_position = page.evaluate(
+                f"document.querySelector('{scroll_container['selector']}').scrollTop"
+            )
         else:
             final_position = page.evaluate("window.scrollY")
         print(f"   ✅ Scrolled to {final_position}px - showing GPU stats")
@@ -500,14 +520,16 @@ def test_full_video_analysis_workflow(page, check_requirements):
     print(f"   📸 Stats section screenshot: {stats_screenshot}")
 
     # Quick scroll back up
-    if scroll_container['canScroll']:
+    if scroll_container["canScroll"]:
         print("   📜 Quick scroll back up to video view (at ~12s)...")
         for i in range(4):  # Quick 4 steps back up
             page.mouse.wheel(0, -400)  # Scroll up 400 pixels
             time.sleep(0.25)  # Quick pause
 
-        if scroll_container['found']:
-            final_position = page.evaluate(f"document.querySelector('{scroll_container['selector']}').scrollTop")
+        if scroll_container["found"]:
+            final_position = page.evaluate(
+                f"document.querySelector('{scroll_container['selector']}').scrollTop"
+            )
         else:
             final_position = page.evaluate("window.scrollY")
         print(f"   ✅ Scrolled back to {final_position}px - back to video view")
@@ -522,10 +544,10 @@ def test_full_video_analysis_workflow(page, check_requirements):
     gpu_stats_visible = False
     for selector in [
         "text=/GPU.*%/i",  # GPU: 45.2%
-        "text=/gpu/i",     # Any mention of "gpu"
-        "#gpu-stats",      # ID selector
-        ".gpu-stats",      # Class selector
-        "[data-testid='gpu-stats']"  # Test ID
+        "text=/gpu/i",  # Any mention of "gpu"
+        "#gpu-stats",  # ID selector
+        ".gpu-stats",  # Class selector
+        "[data-testid='gpu-stats']",  # Test ID
     ]:
         try:
             if page.locator(selector).first.is_visible(timeout=1000):
@@ -566,7 +588,7 @@ def test_full_video_analysis_workflow(page, check_requirements):
             ".settings-btn",  # Class selector
             "button[title='Settings']",  # Title attribute
             "button.settings-btn",
-            "[title='Settings']"
+            "[title='Settings']",
         ]
         found_settings = False
         for selector in settings_selectors:
@@ -603,13 +625,15 @@ def test_full_video_analysis_workflow(page, check_requirements):
                     print("   📡 Setting 'WebRTC Max Video Latency' to 0.1...")
                     try:
                         # Look for input related to WebRTC latency
-                        latency_inputs = page.locator("input[type='number'], input[type='text']").all()
+                        latency_inputs = page.locator(
+                            "input[type='number'], input[type='text']"
+                        ).all()
                         for inp in latency_inputs:
                             # Check if this input is near "latency" text
                             try:
                                 # Get the parent or nearby label
                                 parent = inp.evaluate("el => el.parentElement.textContent")
-                                if 'latency' in parent.lower() or 'webrtc' in parent.lower():
+                                if "latency" in parent.lower() or "webrtc" in parent.lower():
                                     inp.fill("0.1")
                                     print("   ✅ Set WebRTC Max Video Latency to 0.1")
                                     break
@@ -624,11 +648,13 @@ def test_full_video_analysis_workflow(page, check_requirements):
                     print("   📊 Setting 'Graph Update Interval' to 0.1...")
                     try:
                         # Look for input related to graph update interval
-                        graph_inputs = page.locator("input[type='number'], input[type='text']").all()
+                        graph_inputs = page.locator(
+                            "input[type='number'], input[type='text']"
+                        ).all()
                         for inp in graph_inputs:
                             try:
                                 parent = inp.evaluate("el => el.parentElement.textContent")
-                                if 'graph' in parent.lower() and 'interval' in parent.lower():
+                                if "graph" in parent.lower() and "interval" in parent.lower():
                                     inp.fill("0.1")
                                     print("   ✅ Set Graph Update Interval to 0.1")
                                     break
@@ -640,7 +666,12 @@ def test_full_video_analysis_workflow(page, check_requirements):
                     time.sleep(2)  # Show the changed settings
 
                     # Close the modal
-                    close_selectors = ["button:has-text('Close')", "button:has-text('×')", "button:has-text('✕')", "[aria-label*='close' i]"]
+                    close_selectors = [
+                        "button:has-text('Close')",
+                        "button:has-text('×')",
+                        "button:has-text('✕')",
+                        "[aria-label*='close' i]",
+                    ]
                     for close_sel in close_selectors:
                         try:
                             close_btn = page.locator(close_sel).first
@@ -695,11 +726,11 @@ def test_full_video_analysis_workflow(page, check_requirements):
                 # Check if this looks like a model selector (has model names like llama, gemma, etc)
                 option_texts = [opt.text_content() for opt in options]
                 is_model_select = any(
-                    'llama' in txt.lower() or
-                    'gemma' in txt.lower() or
-                    'vision' in txt.lower() or
-                    'mistral' in txt.lower() or
-                    'qwen' in txt.lower()
+                    "llama" in txt.lower()
+                    or "gemma" in txt.lower()
+                    or "vision" in txt.lower()
+                    or "mistral" in txt.lower()
+                    or "qwen" in txt.lower()
                     for txt in option_texts
                 )
 
@@ -711,10 +742,12 @@ def test_full_video_analysis_workflow(page, check_requirements):
                     target_found = False
                     for i, opt in enumerate(options):
                         opt_text = opt.text_content()
-                        if 'llama3.2-vision:11b' in opt_text:
+                        if "llama3.2-vision:11b" in opt_text:
                             model_select.select_option(index=i)
                             new_value = model_select.input_value()
-                            print(f"   ✅ Changed VLM model: '{current_value}' → '{new_value}' (upgrading to larger model)")
+                            print(
+                                f"   ✅ Changed VLM model: '{current_value}' → '{new_value}' (upgrading to larger model)"
+                            )
                             target_found = True
                             time.sleep(3)
                             break
@@ -762,7 +795,7 @@ def test_full_video_analysis_workflow(page, check_requirements):
                             gpu_text = gpu_elem.text_content()
                             if gpu_text:
                                 # Extract GPU percentage
-                                match = re.search(r'(\d+(?:\.\d+)?)\s*%', gpu_text)
+                                match = re.search(r"(\d+(?:\.\d+)?)\s*%", gpu_text)
                                 if match:
                                     gpu_pct = float(match.group(1))
                                     print(f"   GPU: {gpu_pct:.1f}%")
@@ -775,7 +808,8 @@ def test_full_video_analysis_workflow(page, check_requirements):
         # Try to extract the actual VLM analysis text from the page
         try:
             # Get all visible text from the page body
-            page_text = page.evaluate("""
+            page_text = page.evaluate(
+                """
                 () => {
                     // Get text from video overlay or body
                     const overlay = document.querySelector('.video-overlay, .overlay, #text-overlay');
@@ -788,12 +822,34 @@ def test_full_video_analysis_workflow(page, check_requirements):
                     const lines = bodyText.split('\\n').filter(line => line.length > 30);
                     return lines.length > 0 ? lines[lines.length - 1] : bodyText;
                 }
-            """)
+            """
+            )
 
             # Check if we found analysis-like text (contains typical VLM words)
-            if page_text and len(page_text) > 20 and any(word in page_text.lower() for word in
-                ['image', 'person', 'man', 'woman', 'sitting', 'standing', 'wearing', 'room',
-                 'desk', 'chair', 'computer', 'appears', 'visible', 'shows', 'seen']):
+            if (
+                page_text
+                and len(page_text) > 20
+                and any(
+                    word in page_text.lower()
+                    for word in [
+                        "image",
+                        "person",
+                        "man",
+                        "woman",
+                        "sitting",
+                        "standing",
+                        "wearing",
+                        "room",
+                        "desk",
+                        "chair",
+                        "computer",
+                        "appears",
+                        "visible",
+                        "shows",
+                        "seen",
+                    ]
+                )
+            ):
 
                 # Check if text has changed
                 if page_text != last_analysis_text and page_text not in analysis_texts:
@@ -802,14 +858,16 @@ def test_full_video_analysis_workflow(page, check_requirements):
                     last_analysis_text = page_text
                     # Show preview (first 100 chars)
                     preview = page_text[:100] + "..." if len(page_text) > 100 else page_text
-                    print(f"   🔄 Analysis {len(analysis_texts)} at {i}s: \"{preview}\"")
+                    print(f'   🔄 Analysis {len(analysis_texts)} at {i}s: "{preview}"')
         except Exception as e:
             pass  # Silently continue if extraction fails
 
     print(f"\n   📈 Summary:")
     print(f"      - Total runtime: ~45 seconds")
     print(f"      - Started with: gemma3:4b (fast model)")
-    print(f"      - Timeline: Scroll(10s/12s) → Theme(15s) → Settings(18s) → Upgrade to llama3.2-vision:11b(25s)")
+    print(
+        f"      - Timeline: Scroll(10s/12s) → Theme(15s) → Settings(18s) → Upgrade to llama3.2-vision:11b(25s)"
+    )
     print(f"      - GPU stats monitoring throughout")
     print(f"      - VLM analysis updates detected: {len(analyses)}")
 

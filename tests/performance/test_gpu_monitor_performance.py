@@ -41,15 +41,16 @@ class TestGPUMonitorPerformance:
 
         # NVML calls are fast (sub-millisecond)
         # This test ensures performance doesn't regress
-        if result['p95'] < 5.0:
+        if result["p95"] < 5.0:
             print(f"   ✅ Performance excellent (P95: {result['p95']:.3f} ms)")
         else:
             print(f"   ⚠️  Warning: P95 latency high ({result['p95']:.3f} ms)")
 
         # GPU stats should be fast enough to not impact real-time performance
         # Allow 5ms P95 (reasonable for monitoring with occasional spikes)
-        assert result['p95'] < 5.0, \
-            f"GPU stats retrieval too slow: P95={result['p95']:.2f}ms (limit: 5ms)"
+        assert (
+            result["p95"] < 5.0
+        ), f"GPU stats retrieval too slow: P95={result['p95']:.2f}ms (limit: 5ms)"
 
     def test_monitor_creation_time(self):
         """Test that monitor creation is reasonably fast."""
@@ -72,8 +73,7 @@ class TestGPUMonitorPerformance:
         else:
             print(f"   ❌ Very slow startup ({creation_time_ms:.2f} ms)")
 
-        assert creation_time_ms < 1000, \
-            f"Monitor creation too slow: {creation_time_ms:.2f}ms"
+        assert creation_time_ms < 1000, f"Monitor creation too slow: {creation_time_ms:.2f}ms"
 
     @pytest.mark.slow
     def test_sustained_monitoring(self):
@@ -117,12 +117,12 @@ class TestGPUMonitorPerformance:
         print(f"   P95 poll time:  {result['p95']:.3f} ms")
         print("")
 
-        if result['p95'] < 5.0:
+        if result["p95"] < 5.0:
             print(f"   ✅ Sustained performance excellent")
         else:
             print(f"   ⚠️  Warning: Performance degraded over time")
 
         # Ensure performance stays fast over sustained operation
-        assert result['p95'] < 10.0, \
-            f"Sustained performance degraded: P95={result['p95']:.2f}ms (limit: 10ms)"
-
+        assert (
+            result["p95"] < 10.0
+        ), f"Sustained performance degraded: P95={result['p95']:.2f}ms (limit: 10ms)"

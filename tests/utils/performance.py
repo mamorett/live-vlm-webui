@@ -88,11 +88,7 @@ def measure_time(name: str = "operation", metrics: PerformanceMetrics = None):
         print(f"⏱️  {name}: {duration_ms:.2f} ms")
 
 
-def performance_test(
-    max_time_ms: float = None,
-    iterations: int = 10,
-    warmup: int = 2
-):
+def performance_test(max_time_ms: float = None, iterations: int = 10, warmup: int = 2):
     """
     Decorator for performance testing.
 
@@ -101,6 +97,7 @@ def performance_test(
         iterations: Number of test iterations
         warmup: Number of warmup iterations (not counted)
     """
+
     def decorator(func: Callable) -> Callable:
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
@@ -130,11 +127,14 @@ def performance_test(
             print(f"   Max:    {max_time:.2f} ms")
 
             if max_time_ms and mean_time > max_time_ms:
-                print(f"   ⚠️  Warning: Mean time {mean_time:.2f} ms exceeds target {max_time_ms} ms")
+                print(
+                    f"   ⚠️  Warning: Mean time {mean_time:.2f} ms exceeds target {max_time_ms} ms"
+                )
 
             return result
 
         return wrapper
+
     return decorator
 
 
@@ -149,4 +149,3 @@ async def measure_async_time(name: str, coro, metrics: PerformanceMetrics = None
 
     print(f"⏱️  {name}: {duration_ms:.2f} ms")
     return result, duration_ms
-

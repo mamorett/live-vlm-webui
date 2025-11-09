@@ -2,6 +2,7 @@
 GPU Monitoring Module
 Supports multiple platforms: NVIDIA (NVML), Jetson Thor (jtop), Jetson Orin (jtop), Apple Silicon, AMD
 """
+
 import asyncio
 import logging
 import os
@@ -44,7 +45,7 @@ def get_cpu_model() -> str:
                     ["sysctl", "-n", "machdep.cpu.brand_string"],
                     capture_output=True,
                     text=True,
-                    timeout=1
+                    timeout=1,
                 )
                 if result.returncode == 0 and result.stdout.strip():
                     return result.stdout.strip()
@@ -55,10 +56,7 @@ def get_cpu_model() -> str:
             # Use WMIC
             try:
                 result = subprocess.run(
-                    ["wmic", "cpu", "get", "name"],
-                    capture_output=True,
-                    text=True,
-                    timeout=1
+                    ["wmic", "cpu", "get", "name"], capture_output=True, text=True, timeout=1
                 )
                 if result.returncode == 0:
                     lines = result.stdout.strip().split("\n")
@@ -121,7 +119,7 @@ class GPUMonitor(ABC):
                 "ram_used_gb": memory.used / (1024**3),
                 "ram_total_gb": memory.total / (1024**3),
                 "ram_percent": memory.percent,
-                "hostname": hostname
+                "hostname": hostname,
             }
         except Exception as e:
             logger.error(f"Error getting CPU/RAM stats: {e}")
@@ -131,7 +129,7 @@ class GPUMonitor(ABC):
                 "ram_used_gb": 0,
                 "ram_total_gb": 0,
                 "ram_percent": 0,
-                "hostname": "Unknown"
+                "hostname": "Unknown",
             }
 
     def update_history(self, stats: Dict):
@@ -147,7 +145,7 @@ class GPUMonitor(ABC):
             "gpu_util": list(self.gpu_util_history),
             "vram_used": list(self.vram_used_history),
             "cpu_util": list(self.cpu_util_history),
-            "ram_used": list(self.ram_used_history)
+            "ram_used": list(self.ram_used_history),
         }
 
 
@@ -174,12 +172,12 @@ class NVMLMonitor(GPUMonitor):
         self.dgx_version = ""
         self.vram_warning_logged = False  # Track if we've warned about VRAM not supported
         try:
-            with open('/etc/dgx-release', 'r') as f:
+            with open("/etc/dgx-release", "r") as f:
                 for line in f:
-                    if line.startswith('DGX_PRETTY_NAME='):
-                        self.product_name = line.split('=')[1].strip().strip('"')
-                    elif line.startswith('DGX_SWBUILD_VERSION='):
-                        self.dgx_version = line.split('=')[1].strip().strip('"')
+                    if line.startswith("DGX_PRETTY_NAME="):
+                        self.product_name = line.split("=")[1].strip().strip('"')
+                    elif line.startswith("DGX_SWBUILD_VERSION="):
+                        self.dgx_version = line.split("=")[1].strip().strip('"')
             if self.product_name:
                 logger.info(f"Detected {self.product_name} (Version {self.dgx_version})")
         except FileNotFoundError:
@@ -189,11 +187,12 @@ class NVMLMonitor(GPUMonitor):
 
         try:
             import pynvml
+
             pynvml.nvmlInit()
             self.handle = pynvml.nvmlDeviceGetHandleByIndex(device_index)
             self.device_name = pynvml.nvmlDeviceGetName(self.handle)
             if isinstance(self.device_name, bytes):
-                self.device_name = self.device_name.decode('utf-8')
+                self.device_name = self.device_name.decode("utf-8")
             self.available = True
             logger.info(f"NVML initialized for GPU: {self.device_name}")
 
@@ -225,9 +224,11 @@ class NVMLMonitor(GPUMonitor):
                 vram_percent = (memory_info.used / memory_info.total) * 100
             except Exception as e:
                 # GB10/Blackwell and some newer GPUs don't support memory queries
-                if 'Not Supported' in str(e) or 'not supported' in str(e).lower():
+                if "Not Supported" in str(e) or "not supported" in str(e).lower():
                     if not self.vram_warning_logged:
-                        logger.warning(f"VRAM monitoring not supported on {self.device_name} (GB10/Blackwell limitation)")
+                        logger.warning(
+                            f"VRAM monitoring not supported on {self.device_name} (GB10/Blackwell limitation)"
+                        )
                         self.vram_warning_logged = True
                     vram_used_gb = None
                     vram_total_gb = None
@@ -261,7 +262,7 @@ class NVMLMonitor(GPUMonitor):
                 "temp_c": temp,
                 "power_w": power_w,
                 "product_name": self.product_name,  # DGX Spark, etc.
-                **system_stats
+                **system_stats,
             }
 
             # Update history
@@ -279,7 +280,9 @@ class NVMLMonitor(GPUMonitor):
                 self.error_logged = True
                 self.available = False  # Don't try again
             elif self.consecutive_errors % 60 == 0:
-                logger.warning(f"NVML still unavailable ({self.consecutive_errors} consecutive errors)")
+                logger.warning(
+                    f"NVML still unavailable ({self.consecutive_errors} consecutive errors)"
+                )
 
             return self._get_fallback_stats()
 
@@ -288,9 +291,13 @@ class NVMLMonitor(GPUMonitor):
         system_stats = self.get_cpu_ram_stats()
 
         # Use GPU name if we got it during init, otherwise show unavailable
-        gpu_name = getattr(self, 'device_name', 'N/A')
-        platform_name = f"NVIDIA {gpu_name} (monitoring unavailable)" if gpu_name != "N/A" else "NVIDIA (NVML unavailable)"
-        product_name = getattr(self, 'product_name', '')
+        gpu_name = getattr(self, "device_name", "N/A")
+        platform_name = (
+            f"NVIDIA {gpu_name} (monitoring unavailable)"
+            if gpu_name != "N/A"
+            else "NVIDIA (NVML unavailable)"
+        )
+        product_name = getattr(self, "product_name", "")
 
         return {
             "platform": platform_name,
@@ -302,7 +309,7 @@ class NVMLMonitor(GPUMonitor):
             "vram_percent": 0,
             "temp_c": None,
             "power_w": None,
-            **system_stats
+            **system_stats,
         }
 
     def cleanup(self):
@@ -310,6 +317,7 @@ class NVMLMonitor(GPUMonitor):
         if self.available:
             try:
                 import pynvml
+
                 pynvml.nvmlShutdown()
                 logger.info("NVML shutdown complete")
             except Exception as e:
@@ -329,32 +337,49 @@ class JetsonThorMonitor(GPUMonitor):
         # Try jtop first (best support for Thor - GPU, VRAM, temp, power)
         try:
             from jtop import jtop
+
             self.jtop_instance = jtop()
             self.jtop_instance.start()
             self.use_jtop = True
             self.available = True
             logger.info(f"Jetson Thor monitoring initialized - using jtop (jetson_stats)")
         except ImportError:
-            logger.warning("jtop (jetson_stats) not installed - install with: sudo pip3 install jetson-stats")
+            logger.warning(
+                "jtop (jetson_stats) not installed - install with: sudo pip3 install jetson-stats"
+            )
         except Exception as e:
             logger.warning(f"jtop initialization failed: {e}")
 
         # Fallback to nvhost_podgov if jtop not available
         if not self.use_jtop:
             # Thor-specific paths (JetPack 7 / L4T r38.2)
-            self.gpu_base_path = "/sys/devices/platform/bus@0/d0b0000000.pcie/pci0000:00/0000:00:00.0/0000:01:00.0"
-            self.gpc_load_target = f"{self.gpu_base_path}/gpu-gpc-0/devfreq/gpu-gpc-0/nvhost_podgov/load_target"
-            self.gpc_load_max = f"{self.gpu_base_path}/gpu-gpc-0/devfreq/gpu-gpc-0/nvhost_podgov/load_max"
-            self.nvd_load_target = f"{self.gpu_base_path}/gpu-nvd-0/devfreq/gpu-nvd-0/nvhost_podgov/load_target"
-            self.nvd_load_max = f"{self.gpu_base_path}/gpu-nvd-0/devfreq/gpu-nvd-0/nvhost_podgov/load_max"
+            self.gpu_base_path = (
+                "/sys/devices/platform/bus@0/d0b0000000.pcie/pci0000:00/0000:00:00.0/0000:01:00.0"
+            )
+            self.gpc_load_target = (
+                f"{self.gpu_base_path}/gpu-gpc-0/devfreq/gpu-gpc-0/nvhost_podgov/load_target"
+            )
+            self.gpc_load_max = (
+                f"{self.gpu_base_path}/gpu-gpc-0/devfreq/gpu-gpc-0/nvhost_podgov/load_max"
+            )
+            self.nvd_load_target = (
+                f"{self.gpu_base_path}/gpu-nvd-0/devfreq/gpu-nvd-0/nvhost_podgov/load_target"
+            )
+            self.nvd_load_max = (
+                f"{self.gpu_base_path}/gpu-nvd-0/devfreq/gpu-nvd-0/nvhost_podgov/load_max"
+            )
 
             # Check if monitoring is available
             try:
-                with open(self.gpc_load_target, 'r') as f:
+                with open(self.gpc_load_target, "r") as f:
                     f.read()
                 self.available = True
-                logger.info(f"Jetson Thor monitoring initialized - using nvhost_podgov (limited stats)")
-                logger.info(f"💡 For full stats (GPU, VRAM, temp), install: sudo pip3 install jetson-stats")
+                logger.info(
+                    f"Jetson Thor monitoring initialized - using nvhost_podgov (limited stats)"
+                )
+                logger.info(
+                    f"💡 For full stats (GPU, VRAM, temp), install: sudo pip3 install jetson-stats"
+                )
             except (FileNotFoundError, PermissionError) as e:
                 logger.warning(f"Jetson Thor nvhost_podgov not accessible: {e}")
                 self.available = False
@@ -371,72 +396,87 @@ class JetsonThorMonitor(GPUMonitor):
                 "vram_used_gb": 0,
                 "vram_total_gb": 0,
                 "vram_percent": 0,
-                **system_stats
+                **system_stats,
             }
 
         # Use jtop if available (full stats)
         if self.use_jtop and self.jtop_instance:
             try:
                 # Get stats from jtop
-                gpu_percent = self.jtop_instance.stats.get('GPU', 0)
+                gpu_percent = self.jtop_instance.stats.get("GPU", 0)
 
                 # Get memory stats (jtop uses shared memory on Jetson)
                 memory = self.jtop_instance.memory
                 # Thor uses unified memory, RAM is shared with GPU
                 # jtop returns memory in KB, convert to GB (divide by 1024^2)
-                vram_used_gb = memory.get('RAM', {}).get('used', 0) / (1024 * 1024)
-                vram_total_gb = memory.get('RAM', {}).get('tot', 0) / (1024 * 1024)
+                vram_used_gb = memory.get("RAM", {}).get("used", 0) / (1024 * 1024)
+                vram_total_gb = memory.get("RAM", {}).get("tot", 0) / (1024 * 1024)
                 vram_percent = (vram_used_gb / vram_total_gb * 100) if vram_total_gb > 0 else 0
 
                 # Temperature
                 temp_c = None
-                if hasattr(self.jtop_instance, 'temperature'):
+                if hasattr(self.jtop_instance, "temperature"):
                     temps = self.jtop_instance.temperature
                     # Try to get GPU temp
-                    temp_c = temps.get('GPU', temps.get('thermal', None))
+                    temp_c = temps.get("GPU", temps.get("thermal", None))
 
                 # Power
                 power_w = None
-                if hasattr(self.jtop_instance, 'power'):
+                if hasattr(self.jtop_instance, "power"):
                     power = self.jtop_instance.power
                     # Sum all power rails if available
                     if isinstance(power, dict):
-                        power_w = sum(p.get('power', 0) for p in power.values() if isinstance(p, dict)) / 1000  # mW to W
+                        power_w = (
+                            sum(p.get("power", 0) for p in power.values() if isinstance(p, dict))
+                            / 1000
+                        )  # mW to W
 
                 # Get board name (e.g., "Jetson AGX Thor Developer Kit")
                 board_name = None
-                if hasattr(self.jtop_instance, 'board'):
+                if hasattr(self.jtop_instance, "board"):
                     board_info = self.jtop_instance.board
                     if isinstance(board_info, dict):
                         # Debug: log board_info structure once
-                        if not hasattr(self, '_board_info_logged'):
+                        if not hasattr(self, "_board_info_logged"):
                             logger.info(f"Board info structure: {list(board_info.keys())}")
-                            if 'info' in board_info:
-                                logger.info(f"Board info['info'] keys: {list(board_info['info'].keys()) if isinstance(board_info['info'], dict) else type(board_info['info'])}")
-                            if 'hardware' in board_info:
+                            if "info" in board_info:
+                                logger.info(
+                                    f"Board info['info'] keys: {list(board_info['info'].keys()) if isinstance(board_info['info'], dict) else type(board_info['info'])}"
+                                )
+                            if "hardware" in board_info:
                                 logger.info(f"Board info['hardware']: {board_info['hardware']}")
-                            if 'platform' in board_info:
+                            if "platform" in board_info:
                                 logger.info(f"Board info['platform']: {board_info['platform']}")
                             self._board_info_logged = True
 
                         # Try to get board name from various possible locations
                         # Check 'hardware' dict first (jtop structure)
-                        if 'hardware' in board_info and isinstance(board_info['hardware'], dict):
-                            board_name = board_info['hardware'].get('Model') or board_info['hardware'].get('Module')
+                        if "hardware" in board_info and isinstance(board_info["hardware"], dict):
+                            board_name = board_info["hardware"].get("Model") or board_info[
+                                "hardware"
+                            ].get("Module")
                         # Fallback to 'info' dict if available
-                        if not board_name and 'info' in board_info and isinstance(board_info['info'], dict):
-                            board_name = board_info['info'].get('Machine') or board_info['info'].get('Model')
+                        if (
+                            not board_name
+                            and "info" in board_info
+                            and isinstance(board_info["info"], dict)
+                        ):
+                            board_name = board_info["info"].get("Machine") or board_info[
+                                "info"
+                            ].get("Model")
                         # Fallback to 'platform' if it's a string
-                        if not board_name and 'platform' in board_info:
-                            platform = board_info['platform']
+                        if not board_name and "platform" in board_info:
+                            platform = board_info["platform"]
                             if isinstance(platform, dict):
-                                board_name = platform.get('Machine')
+                                board_name = platform.get("Machine")
                             elif isinstance(platform, str):
                                 board_name = platform
 
                         # Final fallback: if still not a string, stringify safely
                         if board_name and not isinstance(board_name, str):
-                            logger.warning(f"Board name is not a string: {type(board_name)}, value: {board_name}")
+                            logger.warning(
+                                f"Board name is not a string: {type(board_name)}, value: {board_name}"
+                            )
                             board_name = str(board_name) if board_name else None
 
                 stats = {
@@ -449,7 +489,7 @@ class JetsonThorMonitor(GPUMonitor):
                     "vram_percent": vram_percent,
                     "temp_c": temp_c,
                     "power_w": power_w,
-                    **system_stats
+                    **system_stats,
                 }
 
                 # Update history
@@ -465,9 +505,9 @@ class JetsonThorMonitor(GPUMonitor):
         # Fallback to nvhost_podgov (GPU util only, no VRAM)
         try:
             # Read GPC (Graphics Processing Cluster) load
-            with open(self.gpc_load_target, 'r') as f:
+            with open(self.gpc_load_target, "r") as f:
                 gpc_load = int(f.read().strip())
-            with open(self.gpc_load_max, 'r') as f:
+            with open(self.gpc_load_max, "r") as f:
                 gpc_max = int(f.read().strip())
 
             # Calculate GPU utilization percentage
@@ -475,9 +515,9 @@ class JetsonThorMonitor(GPUMonitor):
 
             # Try to read NVD (NVIDIA Display) load as well
             try:
-                with open(self.nvd_load_target, 'r') as f:
+                with open(self.nvd_load_target, "r") as f:
                     nvd_load = int(f.read().strip())
-                with open(self.nvd_load_max, 'r') as f:
+                with open(self.nvd_load_max, "r") as f:
                     nvd_max = int(f.read().strip())
                 nvd_percent = (nvd_load / nvd_max * 100) if nvd_max > 0 else 0
 
@@ -495,7 +535,7 @@ class JetsonThorMonitor(GPUMonitor):
                 "vram_percent": 0,
                 "temp_c": None,
                 "power_w": None,
-                **system_stats
+                **system_stats,
             }
 
             # Update history
@@ -513,7 +553,7 @@ class JetsonThorMonitor(GPUMonitor):
                 "vram_used_gb": 0,
                 "vram_total_gb": 0,
                 "vram_percent": 0,
-                **system_stats
+                **system_stats,
             }
 
     def cleanup(self):
@@ -554,6 +594,7 @@ class AppleSiliconMonitor(GPUMonitor):
             self.product_name = os.environ.get("HOST_PRODUCT_NAME", "Mac")
             # Override hostname to show host's hostname
             import socket
+
             self._hostname = os.environ.get("HOST_HOSTNAME", socket.gethostname())
 
             # Extract chip type from host CPU model
@@ -589,13 +630,18 @@ class AppleSiliconMonitor(GPUMonitor):
                     ["sysctl", "-n", "machdep.cpu.brand_string"],
                     capture_output=True,
                     text=True,
-                    timeout=1
+                    timeout=1,
                 )
                 if result.returncode == 0:
                     cpu_brand = result.stdout.strip()
                     # Extract chip type (M1, M2, M3, M4, etc.)
                     if "Apple" in cpu_brand:
-                        for chip in ["M4", "M3", "M2", "M1"]:  # Check in reverse order for correct match
+                        for chip in [
+                            "M4",
+                            "M3",
+                            "M2",
+                            "M1",
+                        ]:  # Check in reverse order for correct match
                             if chip in cpu_brand:
                                 self.chip_type = chip
 
@@ -626,44 +672,50 @@ class AppleSiliconMonitor(GPUMonitor):
                     ["system_profiler", "SPHardwareDataType"],
                     capture_output=True,
                     text=True,
-                    timeout=3
+                    timeout=3,
                 )
                 if result.returncode == 0:
-                    for line in result.stdout.split('\n'):
-                        if 'Model Name:' in line:
+                    for line in result.stdout.split("\n"):
+                        if "Model Name:" in line:
                             # Extract "MacBook Pro" etc.
-                            self.product_name = line.split(':')[1].strip()
-                        elif 'Model Identifier:' in line:
-                            model_id = line.split(':')[1].strip()
+                            self.product_name = line.split(":")[1].strip()
+                        elif "Model Identifier:" in line:
+                            model_id = line.split(":")[1].strip()
 
                     # Try to get screen size from display info
-                    if self.product_name and 'MacBook' in self.product_name:
+                    if self.product_name and "MacBook" in self.product_name:
                         try:
                             display_result = subprocess.run(
                                 ["system_profiler", "SPDisplaysDataType"],
                                 capture_output=True,
                                 text=True,
-                                timeout=3
+                                timeout=3,
                             )
                             if display_result.returncode == 0:
                                 # Look for built-in display resolution to infer size
-                                lines = display_result.stdout.split('\n')
+                                lines = display_result.stdout.split("\n")
                                 for i, line in enumerate(lines):
-                                    if 'Built-In' in line or 'Color LCD' in line:
+                                    if "Built-In" in line or "Color LCD" in line:
                                         # Check next few lines for resolution
-                                        for j in range(i, min(i+10, len(lines))):
-                                            if 'Resolution:' in lines[j]:
+                                        for j in range(i, min(i + 10, len(lines))):
+                                            if "Resolution:" in lines[j]:
                                                 res = lines[j].lower()
                                                 # Infer screen size from resolution
-                                                if '3456' in res or '3024' in res:  # 14" and 16" MacBook Pro
+                                                if (
+                                                    "3456" in res or "3024" in res
+                                                ):  # 14" and 16" MacBook Pro
                                                     # Check if it's 16" (3456x2234) or 14" (3024x1964)
-                                                    if '3456' in res:
+                                                    if "3456" in res:
                                                         self.product_name += ' 16"'
-                                                    elif '3024' in res:
+                                                    elif "3024" in res:
                                                         self.product_name += ' 14"'
-                                                elif '2880' in res and '1800' in res:  # 15" MacBook Air
+                                                elif (
+                                                    "2880" in res and "1800" in res
+                                                ):  # 15" MacBook Air
                                                     self.product_name += ' 15"'
-                                                elif '2560' in res and '1664' in res:  # 13" MacBook Air/Pro
+                                                elif (
+                                                    "2560" in res and "1664" in res
+                                                ):  # 13" MacBook Air/Pro
                                                     self.product_name += ' 13"'
                                                 break
                                         break
@@ -678,14 +730,14 @@ class AppleSiliconMonitor(GPUMonitor):
                     ["system_profiler", "SPDisplaysDataType"],
                     capture_output=True,
                     text=True,
-                    timeout=3
+                    timeout=3,
                 )
                 if result.returncode == 0:
-                    for line in result.stdout.split('\n'):
+                    for line in result.stdout.split("\n"):
                         # Look for "Total Number of Cores:" in GPU section
-                        if 'Total Number of Cores:' in line or 'Cores:' in line:
+                        if "Total Number of Cores:" in line or "Cores:" in line:
                             try:
-                                cores_str = line.split(':')[1].strip()
+                                cores_str = line.split(":")[1].strip()
                                 self.gpu_cores = int(cores_str)
                                 break
                             except:
@@ -695,11 +747,7 @@ class AppleSiliconMonitor(GPUMonitor):
 
             # Check if powermetrics is available (requires sudo, so likely not usable)
             try:
-                result = subprocess.run(
-                    ["which", "powermetrics"],
-                    capture_output=True,
-                    timeout=1
-                )
+                result = subprocess.run(["which", "powermetrics"], capture_output=True, timeout=1)
                 if result.returncode == 0:
                     self.use_powermetrics = True
                     logger.info("powermetrics found - but requires sudo for GPU stats")
@@ -710,7 +758,11 @@ class AppleSiliconMonitor(GPUMonitor):
             logger.info(f"Apple Silicon monitoring initialized")
             if self.product_name:
                 logger.info(f"Product: {self.product_name}")
-            logger.info(f"Chip: {self.gpu_name} ({self.gpu_cores}-core GPU)" if self.gpu_cores > 0 else f"Chip: {self.gpu_name}")
+            logger.info(
+                f"Chip: {self.gpu_name} ({self.gpu_cores}-core GPU)"
+                if self.gpu_cores > 0
+                else f"Chip: {self.gpu_name}"
+            )
             logger.info(f"💡 Ollama uses Metal (GPU) for inference, not Neural Engine")
             logger.info(f"💡 For detailed monitoring: brew install asitop && sudo asitop")
             logger.info(f"💡 Or use Activity Monitor > Window > GPU History")
@@ -719,8 +771,8 @@ class AppleSiliconMonitor(GPUMonitor):
         """Get CPU and RAM stats, with custom hostname for Docker"""
         stats = super().get_cpu_ram_stats()
         # Override hostname if running in Docker on Mac
-        if hasattr(self, '_hostname'):
-            stats['hostname'] = self._hostname
+        if hasattr(self, "_hostname"):
+            stats["hostname"] = self._hostname
         return stats
 
     def get_stats(self) -> Dict:
@@ -735,7 +787,7 @@ class AppleSiliconMonitor(GPUMonitor):
                 "vram_used_gb": 0,
                 "vram_total_gb": 0,
                 "vram_percent": 0,
-                **system_stats
+                **system_stats,
             }
 
         # Try to get GPU stats via powermetrics (requires sudo, so will likely fail)
@@ -748,21 +800,23 @@ class AppleSiliconMonitor(GPUMonitor):
                     ["powermetrics", "-n", "1", "-i", "100", "--samplers", "gpu_power"],
                     capture_output=True,
                     text=True,
-                    timeout=2
+                    timeout=2,
                 )
                 if result.returncode == 0 and result.stdout:
                     # Parse GPU active residency if available
-                    for line in result.stdout.split('\n'):
-                        if 'GPU active residency' in line:
+                    for line in result.stdout.split("\n"):
+                        if "GPU active residency" in line:
                             # Extract percentage
                             try:
-                                gpu_percent = float(line.split(':')[1].strip().rstrip('%'))
+                                gpu_percent = float(line.split(":")[1].strip().rstrip("%"))
                             except:
                                 pass
             except subprocess.TimeoutExpired:
                 if not self.powermetrics_warned:
                     logger.warning("powermetrics requires sudo - GPU utilization unavailable")
-                    logger.info("💡 Install asitop for GPU monitoring: brew install asitop && sudo asitop")
+                    logger.info(
+                        "💡 Install asitop for GPU monitoring: brew install asitop && sudo asitop"
+                    )
                     self.powermetrics_warned = True
                     self.use_powermetrics = False
             except Exception as e:
@@ -784,7 +838,7 @@ class AppleSiliconMonitor(GPUMonitor):
             "vram_percent": system_stats["ram_percent"],
             "temp_c": None,  # Would need IOKit APIs or asitop
             "power_w": None,  # Would need sudo powermetrics
-            **system_stats
+            **system_stats,
         }
 
         # Update history
@@ -810,13 +864,16 @@ class JetsonOrinMonitor(GPUMonitor):
         # Try jtop (best support for Orin - GPU, VRAM, temp, power)
         try:
             from jtop import jtop
+
             self.jtop_instance = jtop()
             self.jtop_instance.start()
             self.use_jtop = True
             self.available = True
             logger.info(f"Jetson Orin monitoring initialized - using jtop (jetson_stats)")
         except ImportError:
-            logger.warning("jtop (jetson_stats) not installed - install with: sudo pip3 install jetson-stats")
+            logger.warning(
+                "jtop (jetson_stats) not installed - install with: sudo pip3 install jetson-stats"
+            )
         except Exception as e:
             logger.warning(f"jtop initialization failed: {e}")
 
@@ -832,56 +889,69 @@ class JetsonOrinMonitor(GPUMonitor):
                 "vram_used_gb": 0,
                 "vram_total_gb": 0,
                 "vram_percent": 0,
-                **system_stats
+                **system_stats,
             }
 
         # Use jtop for stats
         if self.use_jtop and self.jtop_instance:
             try:
                 # Get stats from jtop
-                gpu_percent = self.jtop_instance.stats.get('GPU', 0)
+                gpu_percent = self.jtop_instance.stats.get("GPU", 0)
 
                 # Get memory stats (jtop uses shared memory on Jetson)
                 memory = self.jtop_instance.memory
                 # Orin uses unified memory, RAM is shared with GPU
                 # jtop returns memory in KB, convert to GB (divide by 1024^2)
-                vram_used_gb = memory.get('RAM', {}).get('used', 0) / (1024 * 1024)
-                vram_total_gb = memory.get('RAM', {}).get('tot', 0) / (1024 * 1024)
+                vram_used_gb = memory.get("RAM", {}).get("used", 0) / (1024 * 1024)
+                vram_total_gb = memory.get("RAM", {}).get("tot", 0) / (1024 * 1024)
                 vram_percent = (vram_used_gb / vram_total_gb * 100) if vram_total_gb > 0 else 0
 
                 # Temperature
                 temp_c = None
-                if hasattr(self.jtop_instance, 'temperature'):
+                if hasattr(self.jtop_instance, "temperature"):
                     temps = self.jtop_instance.temperature
                     # Try to get GPU temp
-                    temp_c = temps.get('GPU', temps.get('thermal', None))
+                    temp_c = temps.get("GPU", temps.get("thermal", None))
 
                 # Power
                 power_w = None
-                if hasattr(self.jtop_instance, 'power'):
+                if hasattr(self.jtop_instance, "power"):
                     power = self.jtop_instance.power
                     # Sum all power rails if available
                     if isinstance(power, dict):
-                        power_w = sum(p.get('power', 0) for p in power.values() if isinstance(p, dict)) / 1000  # mW to W
+                        power_w = (
+                            sum(p.get("power", 0) for p in power.values() if isinstance(p, dict))
+                            / 1000
+                        )  # mW to W
 
                 # Get board name (e.g., "Jetson AGX Orin Developer Kit")
                 board_name = None
-                if hasattr(self.jtop_instance, 'board'):
+                if hasattr(self.jtop_instance, "board"):
                     board_info = self.jtop_instance.board
                     if isinstance(board_info, dict):
                         # Try hardware.Model first, then other fields
-                        if 'hardware' in board_info and isinstance(board_info['hardware'], dict):
-                            board_name = board_info['hardware'].get('Model') or board_info['hardware'].get('Module')
-                        if not board_name and 'info' in board_info and isinstance(board_info['info'], dict):
-                            board_name = board_info['info'].get('Machine') or board_info['info'].get('Model')
-                        if not board_name and 'platform' in board_info:
-                            platform = board_info['platform']
+                        if "hardware" in board_info and isinstance(board_info["hardware"], dict):
+                            board_name = board_info["hardware"].get("Model") or board_info[
+                                "hardware"
+                            ].get("Module")
+                        if (
+                            not board_name
+                            and "info" in board_info
+                            and isinstance(board_info["info"], dict)
+                        ):
+                            board_name = board_info["info"].get("Machine") or board_info[
+                                "info"
+                            ].get("Model")
+                        if not board_name and "platform" in board_info:
+                            platform = board_info["platform"]
                             if isinstance(platform, dict):
-                                board_name = platform.get('Machine')
+                                board_name = platform.get("Machine")
                             elif isinstance(platform, str):
                                 board_name = platform
                         if board_name and not isinstance(board_name, str):
-                            logger.warning(f"Board name is not a string: {type(board_name)}, value: {board_name}")
+                            logger.warning(
+                                f"Board name is not a string: {type(board_name)}, value: {board_name}"
+                            )
                             board_name = str(board_name) if board_name else None
 
                 return {
@@ -894,7 +964,7 @@ class JetsonOrinMonitor(GPUMonitor):
                     "gpu_temp_c": temp_c,
                     "gpu_power_w": power_w,
                     "board_name": board_name,
-                    **system_stats
+                    **system_stats,
                 }
             except Exception as e:
                 logger.error(f"Error getting jtop stats: {e}")
@@ -905,7 +975,7 @@ class JetsonOrinMonitor(GPUMonitor):
                     "vram_used_gb": 0,
                     "vram_total_gb": 0,
                     "vram_percent": 0,
-                    **system_stats
+                    **system_stats,
                 }
 
         return {
@@ -915,7 +985,7 @@ class JetsonOrinMonitor(GPUMonitor):
             "vram_used_gb": 0,
             "vram_total_gb": 0,
             "vram_percent": 0,
-            **system_stats
+            **system_stats,
         }
 
     def cleanup(self):
@@ -949,6 +1019,7 @@ def create_monitor(platform: Optional[str] = None) -> GPUMonitor:
 
     # Auto-detect macOS / Apple Silicon
     import platform as platform_module
+
     if platform is None and platform_module.system() == "Darwin":
         logger.info("Auto-detected macOS - using AppleSiliconMonitor")
         return AppleSiliconMonitor()
@@ -967,12 +1038,13 @@ def create_monitor(platform: Optional[str] = None) -> GPUMonitor:
     if platform == "nvidia" or platform is None:
         try:
             import pynvml
+
             pynvml.nvmlInit()
             # Check if it's Thor by GPU name
             handle = pynvml.nvmlDeviceGetHandleByIndex(0)
             gpu_name = pynvml.nvmlDeviceGetName(handle)
             if isinstance(gpu_name, bytes):
-                gpu_name = gpu_name.decode('utf-8')
+                gpu_name = gpu_name.decode("utf-8")
             pynvml.nvmlShutdown()
 
             # If Jetson (Thor or Orin) detected, use jtop-based monitor for better stats
@@ -991,4 +1063,3 @@ def create_monitor(platform: Optional[str] = None) -> GPUMonitor:
     # Fallback to NVML (will show unavailable)
     logger.warning("No GPU detected, using fallback monitor")
     return NVMLMonitor()
-

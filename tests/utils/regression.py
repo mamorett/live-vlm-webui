@@ -44,7 +44,7 @@ class RegressionTracker:
         """Load baselines from file."""
         if self.baseline_file.exists():
             try:
-                with open(self.baseline_file, 'r') as f:
+                with open(self.baseline_file, "r") as f:
                     data = json.load(f)
                     self.baselines = {
                         name: PerformanceBaseline.from_dict(baseline)
@@ -56,11 +56,8 @@ class RegressionTracker:
     def save_baselines(self):
         """Save baselines to file."""
         try:
-            data = {
-                name: baseline.to_dict()
-                for name, baseline in self.baselines.items()
-            }
-            with open(self.baseline_file, 'w') as f:
+            data = {name: baseline.to_dict() for name, baseline in self.baselines.items()}
+            with open(self.baseline_file, "w") as f:
                 json.dump(data, f, indent=2)
         except Exception as e:
             print(f"Warning: Could not save baselines: {e}")
@@ -73,7 +70,7 @@ class RegressionTracker:
         p95_ms: float,
         p99_ms: float,
         sample_size: int,
-        hardware_info: Optional[str] = None
+        hardware_info: Optional[str] = None,
     ):
         """Set or update baseline for a function."""
         baseline = PerformanceBaseline(
@@ -84,7 +81,7 @@ class RegressionTracker:
             p99_ms=p99_ms,
             sample_size=sample_size,
             timestamp=datetime.now().isoformat(),
-            hardware_info=hardware_info
+            hardware_info=hardware_info,
         )
         self.baselines[function_name] = baseline
 
@@ -93,7 +90,7 @@ class RegressionTracker:
         function_name: str,
         current_mean: float,
         current_p95: float,
-        threshold_percent: float = 20.0
+        threshold_percent: float = 20.0,
     ) -> Dict[str, Any]:
         """
         Check if current performance is a regression from baseline.
@@ -111,7 +108,7 @@ class RegressionTracker:
             return {
                 "has_baseline": False,
                 "is_regression": False,
-                "message": "No baseline found. Run with --save-baseline to establish baseline."
+                "message": "No baseline found. Run with --save-baseline to establish baseline.",
             }
 
         baseline = self.baselines[function_name]
@@ -121,15 +118,11 @@ class RegressionTracker:
         p95_change_pct = ((current_p95 - baseline.p95_ms) / baseline.p95_ms) * 100
 
         # Check if regression
-        is_regression = (
-            mean_change_pct > threshold_percent or
-            p95_change_pct > threshold_percent
-        )
+        is_regression = mean_change_pct > threshold_percent or p95_change_pct > threshold_percent
 
         # Check if improvement
         is_improvement = (
-            mean_change_pct < -threshold_percent and
-            p95_change_pct < -threshold_percent
+            mean_change_pct < -threshold_percent and p95_change_pct < -threshold_percent
         )
 
         result = {
@@ -209,7 +202,7 @@ def regression_test(
     iterations: int = 10,
     warmup: int = 2,
     threshold_percent: float = 20.0,
-    fail_on_regression: bool = True
+    fail_on_regression: bool = True,
 ):
     """
     Decorator for performance regression testing.
@@ -222,6 +215,7 @@ def regression_test(
         threshold_percent: Percentage threshold for regression
         fail_on_regression: Whether to raise assertion on regression
     """
+
     def decorator(func: Callable) -> Callable:
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
@@ -254,15 +248,12 @@ def regression_test(
 
             # Check for regression
             regression_result = tracker.check_regression(
-                function_name,
-                mean_ms,
-                p95_ms,
-                threshold_percent
+                function_name, mean_ms, p95_ms, threshold_percent
             )
 
             print(f"\n{regression_result['message']}")
 
-            if fail_on_regression and regression_result['is_regression']:
+            if fail_on_regression and regression_result["is_regression"]:
                 raise AssertionError(
                     f"Performance regression detected: {function_name} "
                     f"Mean +{regression_result['change']['mean_percent']:.1f}%, "
@@ -272,14 +263,17 @@ def regression_test(
             return result
 
         return wrapper
+
     return decorator
 
 
 def get_hardware_info() -> str:
     """Get hardware information for baseline context."""
     import platform
+
     try:
         import psutil
+
         cpu_info = f"{psutil.cpu_count()} cores"
         mem_info = f"{psutil.virtual_memory().total / 1024**3:.1f}GB RAM"
     except ImportError:
@@ -287,4 +281,3 @@ def get_hardware_info() -> str:
         mem_info = "unknown"
 
     return f"{platform.machine()} | {cpu_info} | {mem_info}"
-

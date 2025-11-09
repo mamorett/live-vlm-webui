@@ -48,6 +48,7 @@ class TestStaticFiles(AioHTTPTestCase):
         """Create application for testing."""
         try:
             from live_vlm_webui.server import create_app
+
             return await create_app(test_mode=True)
         except Exception:
             # Fallback
@@ -65,20 +66,17 @@ class TestStaticFiles(AioHTTPTestCase):
 
         for image_path in required_images:
             resp = await self.client.request("GET", image_path)
-            assert resp.status == 200, \
-                f"Missing static file: {image_path} (returns {resp.status})"
+            assert resp.status == 200, f"Missing static file: {image_path} (returns {resp.status})"
 
             # Verify it's actually an image
-            content_type = resp.headers.get('Content-Type', '')
-            assert 'image' in content_type, \
-                f"File {image_path} is not an image: {content_type}"
+            content_type = resp.headers.get("Content-Type", "")
+            assert "image" in content_type, f"File {image_path} is not an image: {content_type}"
 
     async def test_at_least_one_image_exists(self):
         """Test that at least one image asset is accessible."""
         # Just verify that images directory is accessible and has content
         resp = await self.client.request("GET", "/images/jetson-agx-orin-devkit_256px.png")
-        assert resp.status == 200, \
-            "Images directory should be accessible with at least one image"
+        assert resp.status == 200, "Images directory should be accessible with at least one image"
 
     async def test_index_page_loads(self):
         """Test that main page loads without errors."""
@@ -90,21 +88,20 @@ class TestStaticFiles(AioHTTPTestCase):
 
         # Check that it references expected assets
         # This catches if HTML references images that don't exist
-        assert "<img" in html or "background-image" in html, \
-            "No images found in HTML"
+        assert "<img" in html or "background-image" in html, "No images found in HTML"
 
         # Parse and verify all image sources exist
         import re
+
         img_srcs = re.findall(r'src=["\']([^"\']+)["\']', html)
 
         for src in img_srcs:
-            if src.startswith('http'):
+            if src.startswith("http"):
                 continue  # Skip external URLs
 
             # Test each image reference
             resp = await self.client.request("GET", src)
-            assert resp.status == 200, \
-                f"Image referenced in HTML but missing: {src}"
+            assert resp.status == 200, f"Image referenced in HTML but missing: {src}"
 
     async def test_no_404_on_common_paths(self):
         """Test that common paths don't return 404."""
@@ -116,6 +113,4 @@ class TestStaticFiles(AioHTTPTestCase):
 
         for path in paths_to_check:
             resp = await self.client.request("GET", path)
-            assert resp.status != 404, \
-                f"Path returns 404 (likely missing files): {path}"
-
+            assert resp.status != 404, f"Path returns 404 (likely missing files): {path}"

@@ -15,15 +15,11 @@ TEST_DATA_DIR = Path(__file__).parent / "fixtures" / "data"
 # Register custom markers
 def pytest_configure(config):
     """Register custom pytest markers."""
-    config.addinivalue_line(
-        "markers", "performance: mark test as a performance test (can be slow)"
-    )
+    config.addinivalue_line("markers", "performance: mark test as a performance test (can be slow)")
     config.addinivalue_line(
         "markers", "slow: mark test as slow running (deselect with '-m \"not slow\"')"
     )
-    config.addinivalue_line(
-        "markers", "e2e: mark test as end-to-end test"
-    )
+    config.addinivalue_line("markers", "e2e: mark test as end-to-end test")
 
 
 @pytest.fixture(scope="session")
@@ -117,4 +113,3 @@ def performance_report(request):
         print("PERFORMANCE TEST SUMMARY")
         print("=" * 70)
         print(metrics.summary())
-

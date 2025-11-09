@@ -54,4 +54,3 @@ class TestGetCPUModel:
         assert isinstance(cpu_model, str)
         assert len(cpu_model) > 0
         print(f"✅ CPU Model: {cpu_model}")
-
