@@ -64,6 +64,18 @@
             transition: background 0.3s ease, color 0.3s ease;
         }
 
+        /* Code styling for hostname */
+        code {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            padding: 2px 2px;
+            border-radius: 6px;
+            font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+            font-size: 0.8em;
+            color: var(--accent-color);
+            white-space: nowrap;
+        }
+
         /* Header */
         .header {
             background: var(--bg-secondary);
@@ -2530,6 +2542,18 @@
             const productName = stats.product_name;
             const gpuCores = stats.gpu_cores || 0;
 
+            // Check if there's a discrete GPU (not integrated graphics)
+            const hasDiscreteGPU = gpuName &&
+                !gpuName.includes('N/A') &&
+                !gpuName.includes('Unknown') &&
+                !gpuName.includes('Intel HD') &&
+                !gpuName.includes('Intel UHD') &&
+                !gpuName.includes('Intel Iris') &&
+                gpuName !== 'CPU';
+
+            // Helper: Remove frequency from CPU name for compact display
+            const cpuModelShort = cpuModel.replace(/\s*@\s*[\d.]+\s*[GM]Hz/gi, '').replace(/\s+/g, ' ').trim();
+
             if (boardName && typeof boardName === 'string') {
                 // Jetson: Two-line format
                 // Line 1: Board name (hostname)
@@ -2548,12 +2572,34 @@
                 // Line 2: GPU with cores
                 const gpuText = gpuCores > 0 ? `${gpuName} ${gpuCores}-core GPU` : `${gpuName} GPU`;
                 systemInfoElem.innerHTML = `${productName} ${cpuModel} (<code>${hostname}</code>)<br>${gpuText}`;
+            } else if (productName && !productName.includes('Mac') && !productName.includes('DGX')) {
+                // PC with product/motherboard name (branded or DIY)
+                if (hasDiscreteGPU) {
+                    // Has discrete GPU: Two-line format
+                    // Line 1: Product Name (hostname) with CPU (no frequency)
+                    // Line 2: GPU name
+                    const gpuDisplayName = gpuName.includes('GPU') ? gpuName : `${gpuName} GPU`;
+                    systemInfoElem.innerHTML = `<b>${productName}</b> (<code>${hostname}</code>) with ${cpuModelShort}<br>${gpuDisplayName}`;
+                } else {
+                    // No discrete GPU (integrated only): Two-line format
+                    // Line 1: Product Name (hostname)
+                    // Line 2: with CPU (including frequency)
+                    systemInfoElem.innerHTML = `<b>${productName}</b> (<code>${hostname}</code>)<br>with ${cpuModel}`;
+                }
             } else {
-                // PC: Two-line format
-                // Line 1: Hostname (CPU)
-                // Line 2: GPU name
-                const gpuDisplayName = gpuName.includes('GPU') ? gpuName : `${gpuName} GPU`;
-                systemInfoElem.innerHTML = `${hostname} (${cpuModel})<br>${gpuDisplayName}`;
+                // Generic PC
+                if (hasDiscreteGPU) {
+                    // Has discrete GPU: Two-line format
+                    // Line 1: Hostname with CPU (no frequency)
+                    // Line 2: GPU name
+                    const gpuDisplayName = gpuName.includes('GPU') ? gpuName : `${gpuName} GPU`;
+                    systemInfoElem.innerHTML = `<code>${hostname}</code> with ${cpuModelShort}<br>${gpuDisplayName}`;
+                } else {
+                    // No discrete GPU: Two-line format
+                    // Line 1: Hostname
+                    // Line 2: with CPU (including frequency)
+                    systemInfoElem.innerHTML = `<code>${hostname}</code><br>with ${cpuModel}`;
+                }
             }
 
             // Update product image (icon in header)

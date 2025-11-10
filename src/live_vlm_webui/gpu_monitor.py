@@ -33,7 +33,16 @@ def get_cpu_model() -> str:
                 with open("/proc/cpuinfo", "r") as f:
                     for line in f:
                         if line.startswith("model name"):
-                            return line.split(":")[1].strip()
+                            cpu_name = line.split(":")[1].strip()
+                            # Clean up CPU name: remove trademark symbols only
+                            cpu_name = (
+                                cpu_name.replace("(R)", "")
+                                .replace("(TM)", "")
+                                .replace("(r)", "")
+                                .replace("(tm)", "")
+                            )
+                            cpu_name = cpu_name.replace("  ", " ").strip()  # Remove double spaces
+                            return cpu_name
             except Exception:
 
                 pass
@@ -77,6 +86,127 @@ def get_cpu_model() -> str:
     except Exception as e:
         logger.warning(f"Failed to get CPU model: {e}")
         return "Unknown CPU"
+
+
+def get_system_product_info() -> Dict[str, Optional[str]]:
+    """
+    Get system product information from DMI (Desktop Management Interface)
+
+    Returns:
+        Dictionary with keys:
+        - product_name: System product name (e.g., "OptiPlex 9020" or "X299-A")
+        - vendor: System vendor/manufacturer (e.g., "Dell Inc." or "ASUS")
+        - board_name: Motherboard name (e.g., "PRIME X299-A" or "0KC9NP")
+        - board_vendor: Motherboard vendor (e.g., "ASUS" or "Dell Inc.")
+        - display_name: Best descriptive name to show (prioritizes meaningful names)
+    """
+    result = {
+        "product_name": None,
+        "vendor": None,
+        "board_name": None,
+        "board_vendor": None,
+        "display_name": None,
+    }
+
+    # Only available on Linux
+    if platform.system() != "Linux":
+        return result
+
+    # DMI paths in sysfs
+    dmi_base = "/sys/class/dmi/id"
+
+    # Generic/placeholder names that should be ignored
+    generic_names = {
+        "System Product Name",
+        "To be filled by O.E.M.",
+        "To Be Filled By O.E.M.",
+        "Default string",
+        "Not Specified",
+        "Unknown",
+        "",
+    }
+
+    try:
+        # Read all DMI fields
+        try:
+            with open(f"{dmi_base}/product_name", "r") as f:
+                result["product_name"] = f.read().strip()
+        except Exception:
+            pass
+
+        try:
+            with open(f"{dmi_base}/sys_vendor", "r") as f:
+                result["vendor"] = f.read().strip()
+        except Exception:
+            pass
+
+        try:
+            with open(f"{dmi_base}/board_name", "r") as f:
+                result["board_name"] = f.read().strip()
+        except Exception:
+            pass
+
+        try:
+            with open(f"{dmi_base}/board_vendor", "r") as f:
+                result["board_vendor"] = f.read().strip()
+        except Exception:
+            pass
+
+        # Determine the best display name
+        # Priority: product_name (cleaner/shorter) > board_name > None
+
+        product = result["product_name"] if result["product_name"] not in generic_names else None
+        board = result["board_name"] if result["board_name"] not in generic_names else None
+
+        # Prefer product_name (shorter, cleaner) if available
+        # E.g., "X299-A" is cleaner than "PRIME X299-A" when we'll add vendor anyway
+        if product:
+            display_name = product
+            # Use sys_vendor for branded PCs (Dell, HP) or board_vendor for DIY (ASUS, etc.)
+            # Check sys_vendor first as it's more likely to be the brand for branded PCs
+            if result["vendor"]:
+                vendor_source = result["vendor"]
+            else:
+                vendor_source = result["board_vendor"]
+        elif board:
+            display_name = board
+            vendor_source = result["board_vendor"]
+        else:
+            vendor_source = None
+            display_name = None
+
+        # Prepend vendor if meaningful and not already in name
+        if display_name and vendor_source:
+            vendor_clean = (
+                vendor_source.replace(" Inc.", "")
+                .replace(", Inc.", "")
+                .replace(" Corporation", "")
+                .replace("COMPUTER", "")
+                .replace("INC.", "")
+                .strip()
+            )
+            vendor_clean = vendor_clean.replace("ASUSTeK", "ASUS")
+
+            if (
+                vendor_clean
+                and len(vendor_clean) > 2
+                and vendor_clean.lower() not in display_name.lower()
+            ):
+                # Prepend vendor for branded PCs (Dell, HP, etc.) or board vendors (ASUS, etc.)
+                if any(
+                    v in vendor_clean
+                    for v in ["Dell", "HP", "Lenovo", "Acer", "ASUS", "Gigabyte", "MSI", "ASRock"]
+                ):
+                    display_name = f"{vendor_clean} {display_name}"
+
+        result["display_name"] = display_name
+
+        logger.debug(f"DMI Info: {result}")
+
+    except Exception as e:
+        logger.debug(f"Could not read DMI info: {e}")
+
+    return result
 
 
 class GPUMonitor(ABC):
@@ -173,6 +303,7 @@ class NVMLMonitor(GPUMonitor):
         self.product_name = ""
         self.dgx_version = ""
         self.vram_warning_logged = False  # Track if we've warned about VRAM not supported
+
         try:
             with open("/etc/dgx-release", "r") as f:
                 for line in f:
@@ -186,6 +317,13 @@ class NVMLMonitor(GPUMonitor):
             pass  # Not a DGX system
         except Exception as e:
             logger.debug(f"Could not read DGX info: {e}")
+
+        # If not DGX, try to detect PC product info from DMI
+        if not self.product_name:
+            dmi_info = get_system_product_info()
+            if dmi_info["display_name"]:
+                self.product_name = dmi_info["display_name"]
+                logger.info(f"Detected system: {self.product_name}")
 
         try:
             import pynvml
@@ -265,7 +403,7 @@ class NVMLMonitor(GPUMonitor):
                 "vram_percent": vram_percent,
                 "temp_c": temp,
                 "power_w": power_w,
-                "product_name": self.product_name,  # DGX Spark, etc.
+                "product_name": self.product_name,  # DGX Spark, Dell/HP/branded PC, or motherboard name
                 **system_stats,
             }
 
