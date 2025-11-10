@@ -11,6 +11,9 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write  # For uploading to GitHub Release
+      id-token: write  # For PyPI Trusted Publishing
 
     steps:
     - uses: actions/checkout@v4
@@ -46,12 +49,16 @@ jobs:
         path: dist/*.whl
         retention-days: 30
 
-    # Optional: Publish to PyPI on release
-    # Uncomment when ready to publish to PyPI:
-    # - name: Publish to PyPI
-    #   if: github.event_name == 'release'
-    #   env:
-    #     TWINE_USERNAME: __token__
-    #     TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
-    #   run: twine upload dist/*
+    # Upload wheel to GitHub Release
+    - name: Upload wheel to GitHub Release
+      if: github.event_name == 'release'
+      uses: softprops/action-gh-release@v1
+      with:
+        files: dist/*.whl
 
+    # Publish to PyPI using Trusted Publishing (OIDC)
+    - name: Publish to PyPI
+      if: github.event_name == 'release'
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        packages-dir: dist/
