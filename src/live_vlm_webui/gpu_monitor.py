@@ -313,6 +313,7 @@ class NVMLMonitor(GPUMonitor):
         self.available = False
         self.error_logged = False  # Track if we've already logged an error
         self.consecutive_errors = 0  # Count consecutive errors
+        self.stats_call_count = 0  # Track total number of stats calls (for startup grace period)
 
         # Detect DGX Spark
         self.product_name = ""
@@ -361,6 +362,8 @@ class NVMLMonitor(GPUMonitor):
 
     def get_stats(self) -> Dict:
         """Get current GPU stats using NVML"""
+        self.stats_call_count += 1
+
         if not self.available:
             return self._get_fallback_stats()
 
@@ -425,6 +428,13 @@ class NVMLMonitor(GPUMonitor):
             # Update history
             self.update_history(stats)
 
+            # Reset error counter on successful read (handles intermittent errors)
+            if self.consecutive_errors > 0:
+                self.consecutive_errors = 0
+                if self.error_logged:
+                    logger.info("GPU monitoring recovered")
+                    self.error_logged = False
+
             return stats
 
         except Exception as e:
@@ -433,13 +443,29 @@ class NVMLMonitor(GPUMonitor):
             # Only log error once, or every 60 seconds (60 calls at 1Hz)
             if not self.error_logged:
                 logger.error(f"Error getting NVML stats: {e}")
-                logger.warning("GPU monitoring disabled - falling back to CPU/RAM only")
-                self.error_logged = True
-                self.available = False  # Don't try again
-            elif self.consecutive_errors % 60 == 0:
                 logger.warning(
-                    f"NVML still unavailable ({self.consecutive_errors} consecutive errors)"
+                    "GPU monitoring experiencing intermittent errors (this is normal on WSL2)"
                 )
+                self.error_logged = True
+            elif self.consecutive_errors % 60 == 0:
+                logger.warning(f"NVML errors continue ({self.consecutive_errors} total errors)")
+
+            # Only permanently disable after many consecutive errors
+            # WSL2 NVML needs time to stabilize, be very lenient
+            # Allow 240 errors during first minute, 120 errors after that
+            # At 250ms intervals: 240 = 60 seconds, 120 = 30 seconds
+            if self.stats_call_count < 240:
+                error_threshold = 240  # First minute: very lenient
+            else:
+                error_threshold = 120  # After first minute: still lenient
+
+            if self.consecutive_errors > error_threshold:
+                if self.available:  # Only log once when disabling
+                    logger.error(
+                        f"Too many consecutive NVML errors ({error_threshold}+) - disabling GPU monitoring"
+                    )
+                    logger.info("This can happen on WSL2. Try: watch -n 0.5 nvidia-smi")
+                    self.available = False
 
             return self._get_fallback_stats()
 

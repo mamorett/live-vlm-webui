@@ -139,6 +139,142 @@ All blocking items for v0.1.0 have been completed:
   - Priority: Medium (optimization, not blocking)
   - Benefit: Reduce CPU load during video processing
 
+- [ ] **Display detailed VLM inference metrics** (UI/Metrics)
+  - **Current state**: Only showing total latency (ms), avg latency, inference count
+  - **Goal**: Display detailed breakdown of VLM inference phases
+  - **Background**: VLM inference has two distinct phases:
+    - **Prefill phase** (prompt processing): Image encoding + prompt → KV cache population
+      - Duration: 500-2000ms for VLMs (image encoding is expensive)
+      - User experience: Long pause before any text appears
+    - **Decode phase** (token generation): Generate tokens one-by-one
+      - Duration: Depends on response length and GPU speed
+      - User experience: Text appears word-by-word after prefill
+  - **Metrics to display**:
+    1. **Prefill time** (ms) - "Time to first token" - shows image processing overhead
+    2. **Decode speed** (tokens/sec) - "Generation speed" - shows GPU efficiency
+    3. **Total time** (ms) - Already showing as "Latency"
+    4. **Tokens generated** - Response length
+    5. **Vision tokens** - Number of tokens from image (optional, technical detail)
+  - **Implementation**:
+    - **Ollama**: API returns rich metrics in response object
+      ```python
+      {
+        "prompt_eval_count": 577,        # text + vision tokens
+        "prompt_eval_duration": 1500000000,  # nanoseconds (prefill)
+        "eval_count": 25,                # generated tokens
+        "eval_duration": 1250000000,     # nanoseconds (decode)
+      }
+      # Calculate:
+      # prefill_ms = prompt_eval_duration / 1e6
+      # decode_tokens_per_sec = eval_count / (eval_duration / 1e9)
+      ```
+    - **vLLM**: Check if response object includes timing metadata (may not be available via OpenAI-compatible API)
+      - Open WebUI likely has same limitation
+      - May need to use vLLM-specific endpoint or parse response headers
+    - **Other backends**: Show "N/A" gracefully if metrics unavailable
+  - **UI changes**:
+    - Add metrics to inline display: "Prefill: Xms | Gen: Y tok/s | Tokens: Z"
+    - Update WebSocket `vlm_response` message format
+    - Update `vlm_service.py` to extract and return detailed metrics
+    - Consider collapsible "Advanced Metrics" section for technical details
+  - **Note**: Need to detect backend type or parse response metadata structure
+  - Priority: Medium (valuable for performance analysis and model comparison)
+  - Benefit: Users can see where time is spent (image encoding vs text generation), essential for r/LocalLLaMA community
+
+- [ ] **Multi-frame temporal understanding** (Features - HIGH IMPACT)
+  - **Goal**: Enable VLM to understand motion, actions, and changes over time
+  - **Current limitation**: Each frame is analyzed independently with no temporal context
+  - **Use cases**:
+    - Action recognition ("person is waving", "car is turning left")
+    - Motion detection ("object is moving from left to right")
+    - Change detection ("door just opened", "person entered the frame")
+    - Temporal reasoning ("person picked up cup then drank from it")
+  - **Technical approaches**:
+
+    **Option 1: Multi-image API (Recommended if supported)**
+    - Send multiple frames (e.g., 4-8 frames) in a single API request
+    - VLM processes them together with temporal understanding
+    - **Supported by**:
+      - ✅ GPT-4V / GPT-4o (OpenAI) - supports multiple images in one prompt
+      - ✅ Claude 3 (Anthropic) - supports multiple images
+      - ✅ Gemini (Google) - native video understanding
+      - ❓ Ollama - depends on underlying model (need to test)
+      - ❓ vLLM - depends on model architecture
+    - **API format** (OpenAI-compatible):
+      ```python
+      messages = [{
+        "role": "user",
+        "content": [
+          {"type": "text", "text": "What action is happening across these frames?"},
+          {"type": "image_url", "image_url": {"url": "data:image/jpeg;base64,..."}},  # frame 1
+          {"type": "image_url", "image_url": {"url": "data:image/jpeg;base64,..."}},  # frame 2
+          {"type": "image_url", "image_url": {"url": "data:image/jpeg;base64,..."}},  # frame 3
+          {"type": "image_url", "image_url": {"url": "data:image/jpeg;base64,..."}},  # frame 4
+        ]
+      }]
+      ```
+    - **Pros**: Native temporal understanding, best quality
+    - **Cons**: Requires backend support, higher latency, more VRAM
+
+    **Option 2: Grid/collage approach (Universal fallback)**
+    - Combine 4-8 frames into a single grid image (e.g., 2x2 or 2x4 layout)
+    - Add frame numbers/timestamps as text overlay
+    - Send as one image with prompt: "These frames show a sequence over time. Describe what's happening."
+    - **Pros**: Works with ANY VLM, simpler implementation
+    - **Cons**:
+      - Loss of resolution per frame (4 frames = 50% resolution each dimension)
+      - Model must understand spatial grid layout
+      - Less effective than native multi-image support
+    - **Example layout**:
+      ```
+      [Frame 1: t=0.0s] [Frame 2: t=0.5s]
+      [Frame 3: t=1.0s] [Frame 4: t=1.5s]
+      ```
+
+    **Option 3: Conversation/sliding window (Advanced)**
+    - Maintain conversation history with last N frames
+    - Each new frame references previous frames in context
+    - Requires conversation state management
+    - **Pros**: Can maintain longer temporal context
+    - **Cons**: Complex state management, context window limits, may not work well
+
+    **Option 4: Video-native VLMs (Future)**
+    - Use models specifically designed for video understanding
+    - Examples: LLaVA-Video, Video-LLaMA, Video-ChatGPT, Qwen2-VL
+    - These models have temporal attention mechanisms
+    - **Pros**: Best temporal understanding
+    - **Cons**: Limited model availability, requires backend changes
+
+  - **Implementation plan**:
+    1. Add frame buffer to `VideoProcessorTrack` to store last N frames
+    2. Add UI toggle: "Temporal Mode" with frame count selection (2-8 frames)
+    3. Implement grid stitching as universal fallback (Option 2)
+    4. Detect backend capabilities and use multi-image API if available (Option 1)
+    5. Add temporal-specific prompts: "Describe the motion/action across these frames"
+    6. Update metrics to show "frames per inference" and "temporal window"
+
+  - **UI considerations**:
+    - Toggle: "Single Frame" vs "Temporal (4 frames)" vs "Temporal (8 frames)"
+    - Frame rate adjustment: Slower frame rate for temporal mode (e.g., 1 FPS instead of 0.5 FPS)
+    - Visual indicator showing which frames are being analyzed
+    - Latency will be higher (4x frames = ~2-4x longer prefill time)
+
+  - **Performance impact**:
+    - **Prefill time**: Increases linearly with frame count (4 frames ≈ 4x prefill time)
+    - **VRAM**: Increases with frame count (more vision tokens in KV cache)
+    - **Inference rate**: Must be slower (wait for N frames to accumulate)
+    - Example: 4 frames @ 1 FPS = 4 seconds of temporal context, ~4-8 sec total latency
+
+  - **Testing needed**:
+    - Test Ollama with different vision models (llava, llama3.2-vision) for multi-image support
+    - Test vLLM with multi-image capable models
+    - Measure latency/VRAM impact with different frame counts
+    - Evaluate quality: multi-image API vs grid approach
+
+  - Priority: High (major feature, high user demand for action/motion understanding)
+  - Effort: ~2-3 days for basic implementation (grid approach), +1-2 days for multi-image API
+  - Benefit: Unlocks entirely new use cases (action recognition, motion tracking, surveillance, robotics)
+
 - [ ] **Download button for recordings** (UI)
   - Mentioned in README line 191: "Download button (coming soon)"
   - Priority: Low (nice-to-have, not essential)
@@ -148,10 +284,21 @@ All blocking items for v0.1.0 have been completed:
   - Requires: ROCm/rocm-smi integration
   - Note: Removed "coming soon" from README to avoid incorrect expectations
 
-- [ ] **WSL support verification** (Platform Support)
-  - Currently not even tested on WSL
-  - Would be nice to test with WSL with Ollama natively running on Windows
-  - Priority: Medium
+- [x] **WSL support verification and fix** (Platform Support)
+  - ✅ **Tested and working** on WSL2 with Ubuntu 22.04
+  - ✅ GPU inference works (CUDA support confirmed)
+  - ✅ Ollama running inside WSL works perfectly
+  - ✅ **GPU monitoring fixed!** - WSL2 has intermittent NVML errors, now handled with retry logic
+    - Root cause: WSL2's NVML occasionally returns `NVMLError_Unknown` (transient error, not fundamental limitation)
+    - Fix: Added automatic retry logic - only disables after 10+ consecutive errors
+    - Recovery: Automatically recovers when NVML calls succeed again
+    - Behavior: May show 0% briefly during intermittent errors, then recovers
+  - ❌ **Doesn't work:** Ollama on Windows + WebUI on WSL (networking issue)
+    - Windows Ollama only listens on `127.0.0.1`, not accessible from WSL network
+    - Solution: Install Ollama inside WSL instead
+  - 📝 **Documentation:** Created comprehensive guide at `docs/usage/windows-wsl.md`
+  - 🐛 **Code fix:** `src/live_vlm_webui/gpu_monitor.py` - resilient error handling
+  - Priority: Complete and fixed for v0.1.1
 
 ### Testing
 
