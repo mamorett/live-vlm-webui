@@ -27,7 +27,8 @@ htmlcov/
 coverage.json
 .tox/
 .hypothesis/
-test-results/  # Playwright test results & videos
+test-results/
+test-results/**
 
 # Performance testing
 # Local baselines (each developer has their own)
