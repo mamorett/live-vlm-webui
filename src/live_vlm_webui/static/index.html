@@ -1997,6 +1997,21 @@ limitations under the License.
                             <option value="Provide a detailed description of the scene for a visually impaired person.">Accessibility</option>
                             <option value="Read and transcribe any text visible in the image.">OCR / Text Reading</option>
                             <option value="Answer with Yes or No only: Is there a person visible?">Yes/No Question</option>
+                            <option value="You are a robot. Describe what you see, then give 5 navigation commands to get to a possible location of a bathroom. Format: 'linear_x=0.3, angular_z=0.0 # reason'. Keep linear_x between -0.5 and 0.5, angular_z between -1.0 and 1.0.">🤖 Robot Navigation (Simple)</option>
+                            <option value="You are controlling a mobile robot with differential drive. Camera: 1.0m height, forward-facing. Generate ROS cmd_vel commands based on what you see to get to a possible location of a bathroom.
+
+CRITICAL CONSTRAINTS:
+- linear.x: MUST be between -0.5 and +0.5 m/s (violations will cause robot damage)
+- angular.z: MUST be between -1.0 and +1.0 rad/s
+- Commands must respond to actual obstacles/scene content
+
+OUTPUT FORMAT (20 commands for 2.0 seconds):
+T=0.0s: linear.x=0.20, angular.z=0.00 # [explain what you see and why this velocity]
+T=0.1s: linear.x=0.18, angular.z=-0.15 # [explain decision based on scene]
+... (continue for all 20 timesteps)
+
+STRATEGY SECTION:
+After commands, explain: obstacles detected, clearance margins, goal inference, safety considerations.">🤖 Robot Navigation (ROS)</option>
                         </select>
                     </div>
                     <div class="form-group">
