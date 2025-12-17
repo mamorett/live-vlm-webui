@@ -3525,6 +3525,15 @@ After commands, explain: obstacles detected, clearance margins, goal inference, 
             websocket.onopen = () => {
                 console.log('WebSocket connected');
                 updateStatus('Connected', 'connected');
+
+                // Send current model/API settings to server after WebSocket connects
+                // This ensures auto-selected models are properly initialized on the server side
+                // Fix for race condition: page load might auto-select model before WS connects
+                const currentModel = modelSelect.value;
+                if (currentModel) {
+                    console.log('Initializing server with current model:', currentModel);
+                    applyApiSettings({ showFeedback: false });
+                }
             };
 
             websocket.onmessage = (event) => {

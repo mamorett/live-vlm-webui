@@ -7,8 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Changed
-- Nothing yet
+### Fixed
+- **Model initialization race condition**: Fixed auto-selected models not being sent to server
+  - Previously, if the UI auto-selected a model on page load, it wouldn't be sent to the server
+  - This happened because `fetchModels()` ran before WebSocket connection completed
+  - Symptom: Camera opens but no VLM processing until manually selecting a model
+  - Fix: Send current model to server immediately after WebSocket connects
+  - Ensures server always uses the model shown in UI, even when auto-selected
+  - Result: VLM processing starts automatically without requiring manual model selection
 
 ---
 
