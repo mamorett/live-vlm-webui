@@ -1932,6 +1932,14 @@ limitations under the License.
                     <!-- RTSP Controls -->
                     <div id="rtspControls" style="display: none;">
                         <div class="form-group">
+                            <label>Saved Cameras</label>
+                            <select id="rtspCameraSelect">
+                                <option value="">-- Select a camera --</option>
+                            </select>
+                            <div class="input-hint" style="margin-bottom: 11px;">Select a configured RTSP camera</div>
+                        </div>
+
+                        <div class="form-group">
                             <div style="display: flex; align-items: center; gap: 4px; margin-bottom: 8px;">
                                 <div class="tooltip-wrapper" style="margin-bottom: 0; flex: 1;">
                                     <label style="margin-bottom: 0;">RTSP Stream URL</label>
@@ -2177,6 +2185,7 @@ After commands, explain: obstacles detected, clearance margins, goal inference, 
         const processEvery = document.getElementById('processEvery');
         const maxLatency = document.getElementById('maxLatency');
         const mirrorBtn = document.getElementById('mirrorBtn');
+        const rtspCameraSelect = document.getElementById('rtspCameraSelect');
 
         let peerConnection = null;
         let localStream = null;
@@ -2490,6 +2499,45 @@ After commands, explain: obstacles detected, clearance margins, goal inference, 
 
         // Initialize markdown toggle state
         updateMarkdownToggleUI();
+
+        // Fetch and populate RTSP cameras
+        async function fetchRtspConfig() {
+            try {
+                const response = await fetch('/config');
+                const config = await response.json();
+
+                if (config.rtsp_cameras && config.rtsp_cameras.length > 0) {
+                    rtspCameraSelect.innerHTML = '<option value="">-- Select a camera --</option>';
+                    config.rtsp_cameras.forEach(cam => {
+                        const option = document.createElement('option');
+                        option.value = cam.url;
+                        option.textContent = cam.name;
+                        rtspCameraSelect.appendChild(option);
+                    });
+                } else {
+                     rtspCameraSelect.innerHTML = '<option value="">No configured cameras</option>';
+                     rtspCameraSelect.disabled = true;
+                }
+            } catch (err) {
+                console.error('Error fetching config:', err);
+                rtspCameraSelect.innerHTML = '<option value="">Error loading config</option>';
+                rtspCameraSelect.disabled = true;
+            }
+        }
+
+        // Handle RTSP camera selection
+        rtspCameraSelect.addEventListener('change', (e) => {
+            const url = e.target.value;
+            if (url) {
+                document.getElementById('rtspUrl').value = url;
+                // Trigger flash animation
+                const rtspUrlInput = document.getElementById('rtspUrl');
+                rtspUrlInput.classList.add('applied');
+                setTimeout(() => {
+                    rtspUrlInput.classList.remove('applied');
+                }, 600);
+            }
+        });
 
         // Copy to clipboard functionality
         copyButton.addEventListener('click', async () => {
@@ -3899,6 +3947,7 @@ After commands, explain: obstacles detected, clearance margins, goal inference, 
             // Detect services first, then fetch models
             await detectServices();
             fetchModels();
+            fetchRtspConfig();
             connectWebSocket();
 
             // Initialize prompt display

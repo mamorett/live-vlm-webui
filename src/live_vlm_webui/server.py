@@ -106,6 +106,34 @@ def find_available_port(start_port=8080, max_attempts=10):
     return None
 
 
+async def config_handler(request):
+    """Serve the configuration file"""
+    try:
+        config_path = os.path.join(os.path.dirname(__file__), "config.json")
+        user_config_path = None
+
+        try:
+            user_config_path = get_app_config_dir() / "config.json"
+        except Exception as e:
+            logger.debug(f"Could not determine user config path: {e}")
+
+        # Check user config first
+        if user_config_path and user_config_path.exists():
+             with open(user_config_path, "r") as f:
+                config = json.load(f)
+                return web.Response(content_type="application/json", text=json.dumps(config))
+        # Fallback to default config
+        elif os.path.exists(config_path):
+             with open(config_path, "r") as f:
+                config = json.load(f)
+                return web.Response(content_type="application/json", text=json.dumps(config))
+        else:
+            return web.Response(content_type="application/json", text=json.dumps({}))
+    except Exception as e:
+        logger.error(f"Error serving config: {e}")
+        return web.Response(status=500, text=str(e))
+
+
 async def detect_local_service_and_model():
     """
     Auto-detect available local VLM services and select a model
@@ -811,6 +839,7 @@ async def create_app(test_mode=False):
     # Create web application
     app = web.Application()
     app.router.add_get("/", index)
+    app.router.add_get("/config", config_handler)
     app.router.add_get("/models", models)
     app.router.add_get("/detect-services", detect_services)
     app.router.add_get("/ws", websocket_handler)
@@ -852,11 +881,12 @@ async def create_app(test_mode=False):
 def get_app_config_dir():
     """Get the application config directory following OS conventions"""
     import os
+    import sys
     from pathlib import Path
 
     # Follow XDG Base Directory spec on Linux, use OS-appropriate paths elsewhere
     if os.name == "posix":
-        if "darwin" in os.sys.platform.lower():
+        if "darwin" in sys.platform.lower():
             # macOS
             config_dir = Path.home() / "Library" / "Application Support" / "live-vlm-webui"
         else:

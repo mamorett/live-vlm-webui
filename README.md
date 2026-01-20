@@ -271,8 +271,21 @@ source .venv/bin/activate
 pip install --upgrade pip setuptools wheel
 pip install -e .
 
-# 4. Start the server (SSL certs auto-generate)
+# 4. Start the server
+
+# Option 1: Use the helper script (Recommended)
 ./scripts/start_server.sh
+
+# Option 2: Run with Python directly
+# First, generate SSL certificates (required for webcam)
+./scripts/generate_cert.sh
+
+# Then start the server
+python -m live_vlm_webui.server \
+  --ssl-cert cert.pem \
+  --ssl-key key.pem \
+  --host 0.0.0.0 \
+  --port 8090
 ```
 
 **Access the WebUI:** Open **`https://localhost:8090`**
