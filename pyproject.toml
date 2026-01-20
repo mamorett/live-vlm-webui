@@ -78,7 +78,7 @@ live-vlm-webui-stop = "live_vlm_webui.server:stop"
 where = ["src"]
 
 [tool.setuptools.package-data]
-live_vlm_webui = ["static/*", "static/**/*"]
+live_vlm_webui = ["static/*", "static/**/*", "config.json"]
 
 [tool.black]
 line-length = 100

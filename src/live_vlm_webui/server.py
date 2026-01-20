@@ -110,10 +110,15 @@ async def config_handler(request):
     """Serve the configuration file"""
     try:
         config_path = os.path.join(os.path.dirname(__file__), "config.json")
-        user_config_path = get_app_config_dir() / "config.json"
+        user_config_path = None
+
+        try:
+            user_config_path = get_app_config_dir() / "config.json"
+        except Exception as e:
+            logger.debug(f"Could not determine user config path: {e}")
 
         # Check user config first
-        if user_config_path.exists():
+        if user_config_path and user_config_path.exists():
              with open(user_config_path, "r") as f:
                 config = json.load(f)
                 return web.Response(content_type="application/json", text=json.dumps(config))
@@ -876,11 +881,12 @@ async def create_app(test_mode=False):
 def get_app_config_dir():
     """Get the application config directory following OS conventions"""
     import os
+    import sys
     from pathlib import Path
 
     # Follow XDG Base Directory spec on Linux, use OS-appropriate paths elsewhere
     if os.name == "posix":
-        if "darwin" in os.sys.platform.lower():
+        if "darwin" in sys.platform.lower():
             # macOS
             config_dir = Path.home() / "Library" / "Application Support" / "live-vlm-webui"
         else:

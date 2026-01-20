@@ -6,6 +6,7 @@ include pyproject.toml
 
 # Include static assets
 recursive-include src/live_vlm_webui/static *
+include src/live_vlm_webui/config.json
 
 # Exclude build artifacts
 global-exclude __pycache__
