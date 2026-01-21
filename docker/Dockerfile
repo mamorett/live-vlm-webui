@@ -1,4 +1,7 @@
-FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04
+FROM nvcr.io/nvidia/cuda:12.4.1-runtime-ubuntu22.04
+
+# Prevent interactive prompts during build
+ENV DEBIAN_FRONTEND=noninteractive
 
 # Install Python and system dependencies
 RUN apt-get update && apt-get install -y \
